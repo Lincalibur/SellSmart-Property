@@ -51,7 +51,7 @@ resource "aws_rds_cluster" "this" {
     max_capacity = var.db_max_acu
   }
 
-  skip_final_snapshot = false
+  skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project_name}-${var.environment}-final"
 
   deletion_protection = var.environment == "production"

@@ -1,7 +1,7 @@
 resource "aws_cognito_user_pool" "this" {
   name = "${var.project_name}-${var.environment}"
 
-  username_attributes     = ["email"]
+  username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
   password_policy {
@@ -39,7 +39,7 @@ resource "aws_cognito_user_pool_client" "web" {
     "ALLOW_REFRESH_TOKEN_AUTH",
   ]
 
-  generate_secret        = false
+  generate_secret               = false
   prevent_user_existence_errors = "ENABLED"
 }
 

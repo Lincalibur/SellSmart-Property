@@ -79,10 +79,10 @@ resource "aws_cloudfront_origin_access_control" "photos" {
 }
 
 resource "aws_cloudfront_distribution" "this" {
-  enabled         = true
-  web_acl_id      = aws_wafv2_web_acl.this.arn
-  aliases         = var.domain_name != "" ? [var.domain_name] : []
-  price_class     = "PriceClass_100" # cheapest tier -- African/European/N.American edges; widen at Stage 2+ if global reach is needed
+  enabled     = true
+  web_acl_id  = aws_wafv2_web_acl.this.arn
+  aliases     = var.domain_name != "" ? [var.domain_name] : []
+  price_class = "PriceClass_100" # cheapest tier -- African/European/N.American edges; widen at Stage 2+ if global reach is needed
 
   origin {
     domain_name = var.alb_dns_name
@@ -90,7 +90,7 @@ resource "aws_cloudfront_distribution" "this" {
 
     custom_origin_config {
       http_port              = 80
-      https_port              = 443
+      https_port             = 443
       origin_protocol_policy = "http-only" # HTTPS listener added once ACM cert exists, see modules/compute
       origin_ssl_protocols   = ["TLSv1.2"]
     }
@@ -104,7 +104,7 @@ resource "aws_cloudfront_distribution" "this" {
 
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods          = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "alb"
     viewer_protocol_policy = "redirect-to-https"
 
@@ -122,12 +122,12 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   ordered_cache_behavior {
-    path_pattern            = "/photos/*"
-    allowed_methods         = ["GET", "HEAD"]
-    cached_methods           = ["GET", "HEAD"]
-    target_origin_id        = "photos"
-    viewer_protocol_policy  = "redirect-to-https"
-    compress                = true
+    path_pattern           = "/photos/*"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "photos"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
 
     forwarded_values {
       query_string = false

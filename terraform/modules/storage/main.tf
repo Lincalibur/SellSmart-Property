@@ -96,6 +96,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "photos" {
     id     = "noncurrent-version-to-glacier"
     status = var.enable_lifecycle_transition ? "Enabled" : "Disabled"
 
+    filter {} # applies to all objects in the bucket
+
     noncurrent_version_transition {
       noncurrent_days = 90
       storage_class   = "GLACIER_IR"
