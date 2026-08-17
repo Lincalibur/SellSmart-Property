@@ -59,6 +59,14 @@ Data residency isn't a hard POPIA requirement (cross-border processing is allowe
 | Azure | South Africa North (Jhb) | Strong if already in a Microsoft/enterprise stack |
 | Local SA hosts | In-country | Viable for Stage 0–1 only; re-evaluate managed-service depth before Stage 2 |
 
+**Backend platform note:** the chosen Stage 0–1 accelerator, Supabase, does
+not offer an `af-south-1` region (nearest is EU) and has no managed sharding
+/ multi-region-write path for Stage 3. It's the right choice to move fast
+through Stage 0–1, on the understanding that Stage 2 triggers a planned
+migration to direct AWS-managed services (RDS/Aurora, S3, CloudFront, KMS,
+WAF) in `af-south-1` to match this plan's later stages. See
+`docs/BACKEND-STACK-RECOMMENDATION.md` addendum for detail.
+
 ---
 
 ## 4. Data security — the part that actually matters here

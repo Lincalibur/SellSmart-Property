@@ -80,6 +80,49 @@ No API keys or accounts are provisioned by this doc — these are
 recommendations to build against once you're ready to create the actual
 PayFast/DocuSign accounts.
 
+## Addendum: reconciling with `docs/Infrastructure-Hosting-Plan.md`
+
+The hosting plan stages growth (Pilot → Launch → Growth → Scale, see its §2)
+and prefers in-country (`af-south-1`) hosting for data residency (§3). Checked
+against that plan, Supabase is **not sufficient as a permanent choice** —
+three concrete gaps:
+
+1. **No `af-south-1` (Cape Town) region.** This is an open, unresolved
+   Supabase feature request, not something in progress — see
+   [supabase/supabase#27090](https://github.com/supabase/supabase/issues/27090)
+   and [discussion #34614](https://github.com/orgs/supabase/discussions/34614).
+   The nearest available Supabase region is in Europe. POPIA permits
+   cross-border processing with adequate safeguards, so this isn't a
+   compliance blocker, but it gives up the in-country latency/optics benefit
+   the hosting plan calls out.
+2. **No managed sharding or multi-region writes.** Supabase scales a single
+   primary up to 16 cores / 256 GB and offers read-only replicas, but the
+   hosting plan's Stage 3 ("sharded document metadata, multi-region,
+   100,000+ users") isn't achievable on managed Supabase today — their
+   sharding project (Multigres) is alpha-only, not a production feature.
+3. **No built-in WAF/CDN or immutable audit log.** Both are required by the
+   hosting plan §4 and aren't provided by Supabase at all — they need to be
+   added regardless of backend choice.
+
+**Net guidance — Supabase is the right *starting point*, not the permanent
+answer:**
+
+- **Stage 0–1 (pilot/launch, ≤10k users):** Supabase stands, unchanged from
+  the recommendation above — it's well within its compute ceiling and gets
+  auth/RBAC/storage built fastest. Accept EU hosting for now.
+- **From day one regardless of backend:** put Cloudflare (WAF + CDN + DDoS)
+  in front of the app, and build the immutable audit-log table/triggers
+  ourselves — neither is solved by Supabase or any managed DB choice.
+- **Stage 2 trigger (10k–100k users, or p95 latency/DB CPU threshold per
+  hosting plan §2):** re-evaluate and likely migrate to direct AWS-managed
+  services — RDS/Aurora Postgres in `af-south-1`, S3, CloudFront, KMS, WAF —
+  matching the hosting plan's Stage 2/3 architecture. Because Supabase is
+  Postgres underneath, this is a re-platform (schema and RLS logic carry
+  over conceptually), not a rewrite from scratch.
+
+This should be treated as a planned, budgeted migration, not a surprise —
+call it out to any stakeholder discussion of the hosting plan now.
+
 ## What this unlocks
 
 With Supabase chosen, the feature-branch backlog (see follow-up plan) can
