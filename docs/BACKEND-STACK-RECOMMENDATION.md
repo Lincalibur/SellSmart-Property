@@ -1,5 +1,11 @@
 # Backend Stack Recommendation — MVP to Service
 
+> **Superseded for the long-term platform decision** by
+> `docs/Unified-Infrastructure-Architecture.md`, which trades this doc's faster
+> initial build speed for an architecture with zero forced migrations as the
+> service scales. Kept here for the reasoning trail. The PayFast/DocuSign
+> third-party defaults below are still current.
+
 ## Current state
 
 `src/` is a Vite + React (React Router) single-page app. There is no backend:
