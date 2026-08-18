@@ -63,14 +63,20 @@ Also one-time, and already done on `debianhomelab`:
 - **Docker:** installed from Docker's official apt repo (not the distro
   package), `lincalibur` added to the `docker` group so the systemd
   service can run `docker compose` without `sudo`.
-- **Tailscale:** installed, authenticated to the same Tailscale account
-  as everyone who needs to reach the QA site, with Serve + HTTPS
-  Certificates enabled on the tailnet (Tailscale admin console → the
-  per-tailnet "Enable Serve" prompt). `tailscale serve --bg --https=443
-  http://127.0.0.1:8080` was run once and persists in `tailscaled`'s own
-  state (see `README.md`'s "External access (Tailscale)" section) --
-  this does **not** need to be re-run at every boot, `tailscaled` restores
-  it automatically once it comes back up.
+- **Tailscale:** ~~installed, authenticated~~ **removed as of 2026-08-19**
+  -- it was set up and verified working (Serve + HTTPS Certificates,
+  reachable at `https://debianhomelab.tail5d3700.ts.net`), then fully torn
+  down again at the user's request (logged out, `tailscaled` disabled,
+  package uninstalled) out of caution about external reachability, even
+  though `tailscale serve` (not `funnel`) never exposed anything beyond
+  devices explicitly invited onto the tailnet. **The QA site is currently
+  LAN-only** -- reachable at `http://192.168.3.17:8080` (frontend) /
+  `:3000` (api) from the local network, not from outside it. `README.md`'s
+  "External access (Tailscale)" section still documents the exact steps to
+  re-enable this if/when external access is wanted again -- install
+  (`curl -fsSL https://tailscale.com/install.sh | sudo sh`), `tailscale up
+  --ssh`, re-approve Serve + HTTPS Certificates in the admin console, then
+  `tailscale serve --bg --https=443 http://127.0.0.1:8080`.
 
 ## Checking it's actually up
 
