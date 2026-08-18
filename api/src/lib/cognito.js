@@ -9,12 +9,16 @@ import {
   AdminDisableUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
-// COGNITO_ENDPOINT points this at LocalStack for local dev/CI, same
-// pattern as lib/s3.js/lib/email.js -- unset in production, where the SDK
-// talks to real Cognito using the ECS task's IAM role. No AWS account
-// exists yet, so nothing here has been exercised against a real user pool
-// -- only LocalStack (terraform/modules/auth defines the seller/buyer/
-// provider/admin groups this reads/writes).
+// COGNITO_ENDPOINT would point this at LocalStack the same way
+// lib/s3.js/lib/email.js do, but unlike S3/SES, LocalStack's cognito-idp
+// emulation is a Pro-only feature (confirmed by trying it: CI failed with
+// "API for service 'cognito-idp' not yet implemented or pro feature").
+// Nothing here is exercised against real infra of any kind, then -- same
+// bucket as sign-in JWT verification (middleware/auth.js) and DocuSign/
+// PayFast's non-webhook calls: implemented against Cognito's documented
+// Admin* API, verified once a real AWS account exists. Unset in
+// production, where the SDK talks to real Cognito using the ECS task's
+// IAM role.
 export const cognito = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION ?? "af-south-1",
   endpoint: process.env.COGNITO_ENDPOINT || undefined,

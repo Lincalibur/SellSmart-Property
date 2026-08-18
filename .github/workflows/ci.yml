@@ -49,14 +49,15 @@ jobs:
       # SendEmailCommand and listing what was sent, which is all
       # api/src/lib/email.js needs (SESv2 is a LocalStack Pro-only feature,
       # confirmed the hard way -- see email.js's comment). cognito-idp
-      # (issue #12) emulates the admin user-management calls in
-      # lib/cognito.js -- the actual sign-in JWT verification
-      # (middleware/auth.js) still can't be tested for real (see
-      # api/README.md), but the back-office admin operations can.
+      # (issue #12's lib/cognito.js) was tried the same way and is ALSO
+      # Pro-only in LocalStack community -- confirmed via the same
+      # "not yet implemented or pro feature" error -- so it's not listed
+      # here; that module stays untested against real infra, same bucket
+      # as sign-in JWT verification (see api/README.md).
       localstack:
         image: localstack/localstack:3
         env:
-          SERVICES: s3,ses,cognito-idp
+          SERVICES: s3,ses
         ports:
           - 4566:4566
         options: >-
@@ -77,7 +78,6 @@ jobs:
       DOCUMENTS_BUCKET: sellsmart-property-documents-test
       SES_ENDPOINT: http://localhost:4566
       EMAIL_FROM: no-reply@sellsmartproperty.example
-      COGNITO_ENDPOINT: http://localhost:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_REGION: af-south-1
@@ -102,16 +102,6 @@ jobs:
 
       - name: Verify the sender identity in LocalStack's SES
         run: aws --endpoint-url=http://localhost:4566 ses verify-email-identity --email-address no-reply@sellsmartproperty.example
-
-      - name: Create a test Cognito user pool + role groups in LocalStack
-        run: |
-          POOL_ID=$(aws --endpoint-url=http://localhost:4566 cognito-idp create-user-pool \
-            --pool-name sellsmart-test --query 'UserPool.Id' --output text)
-          echo "COGNITO_USER_POOL_ID=$POOL_ID" >> "$GITHUB_ENV"
-          for g in seller buyer provider admin; do
-            aws --endpoint-url=http://localhost:4566 cognito-idp create-group \
-              --user-pool-id "$POOL_ID" --group-name "$g"
-          done
 
       - run: node scripts/migrate.js
       - run: npm test

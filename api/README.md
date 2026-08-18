@@ -190,17 +190,16 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   `requireAuth`, so — like the checkout/envelope-creation routes in #9/#10
   — it only has a "requires auth" HTTP check; it introduces no RLS of its
   own to test at that layer either (see `db/migrations/0020`'s comment).
-- `src/lib/cognito.test.js` (issue #12) is the first test in this suite
-  that exercises a real Cognito-*compatible* endpoint end to end —
-  LocalStack's `cognito-idp` emulation covers the admin user-management
-  calls fully (unlike sign-in JWT verification, which needs a real pool
-  issuing real tokens and stays untestable). CI creates a throwaway test
-  user pool + the four role groups before running tests (see
-  `.github/workflows/ci.yml`); do the same locally with
-  `aws --endpoint-url=http://localhost:4566 cognito-idp create-user-pool --pool-name test`
-  and `create-group` for each of seller/buyer/provider/admin.
-  `src/routes/admin.js`'s DB routes (listings/payments/documents oversight)
-  are RLS-tested (`admin.test.js`), same as every other admin-gated route;
-  its Cognito-backed user routes only get an HTTP "requires auth" check
-  (`admin.http.test.js`), same reasoning as `requireRole`'s 403 branch never
-  being reachable without a real signed-in role either.
+- `src/lib/cognito.js` (issue #12) was going to get the same LocalStack
+  integration test treatment as `s3.js`/`email.js`, but LocalStack's
+  `cognito-idp` emulation turned out to be Pro-only too (same class of
+  limitation as `sesv2` -- confirmed by trying it in CI and getting
+  "not yet implemented or pro feature"). It's implemented against
+  Cognito's documented Admin* API but untested against any real or
+  emulated infra -- the same bucket sign-in JWT verification
+  (`middleware/auth.js`) has always been in. `src/routes/admin.js`'s
+  DB routes (listings/payments/documents oversight) are RLS-tested
+  (`admin.test.js`) instead, same as every other admin-gated route; all of
+  its routes (Cognito-backed or not) get an HTTP "requires auth" check
+  (`admin.http.test.js`), same reasoning as `requireRole`'s 403 branch
+  never being reachable without a real signed-in role either.
