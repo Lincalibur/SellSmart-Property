@@ -54,6 +54,17 @@ test("full OTP flow: submit, then buyer-side transitions before acceptance", asy
   assert.equal(submitted.history.length, 1);
   const otpId = submitted.id;
 
+  // Issue #14: the same transaction that inserted the OTP + otp_history
+  // rows above also wrote an audit_log row -- confirms logAudit is
+  // actually wired into the route, not just unit-tested in isolation.
+  const admin = { id: "http-otp-admin-1", groups: ["admin"] };
+  const audit = await withUserContext(admin, (client) =>
+    client.query("SELECT action, actor_type, ip_address FROM audit_log WHERE resource_id = $1", [otpId])
+  );
+  assert.equal(audit.rows.length, 1);
+  assert.equal(audit.rows[0].action, "offer.submitted");
+  assert.equal(audit.rows[0].actor_type, "buyer");
+
   const getRes = await fetch(`${baseUrl}/api/otps/${otpId}`);
   assert.equal(getRes.status, 200);
   assert.equal((await getRes.json()).offerPrice, 950000);

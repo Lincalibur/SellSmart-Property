@@ -72,6 +72,18 @@ export async function getUser(username) {
   return { ...toUserJson(user), groups: groups.Groups.map((g) => g.GroupName) };
 }
 
+// Epic #14: MFA gate for the admin/provider group-assignment route
+// (routes/admin.js) -- AdminGetUserCommand already returns MFA fields,
+// toUserJson just doesn't surface them since no other caller has needed
+// them yet. UserMFASettingList is the authoritative "has at least one MFA
+// method configured" signal; PreferredMfaSetting can be unset even with a
+// method configured, so don't rely on that alone.
+export async function getMfaStatus(username) {
+  const user = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: username }));
+  const methods = user.UserMFASettingList ?? [];
+  return { mfaEnabled: methods.length > 0, methods };
+}
+
 export async function addUserToGroup(username, groupName) {
   await cognito.send(new AdminAddUserToGroupCommand({ UserPoolId: USER_POOL_ID, Username: username, GroupName: groupName }));
 }

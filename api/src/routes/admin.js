@@ -5,7 +5,18 @@ import { withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
 import { s3, DOCUMENTS_BUCKET } from "../lib/s3.js";
-import { addUserToGroup, getUser, listUsers, removeUserFromGroup, ROLE_GROUPS, setUserEnabled } from "../lib/cognito.js";
+import {
+  addUserToGroup,
+  getMfaStatus,
+  getUser,
+  listUsers,
+  removeUserFromGroup,
+  ROLE_GROUPS,
+  setUserEnabled,
+} from "../lib/cognito.js";
+import { logAudit } from "../lib/audit.js";
+
+const MFA_REQUIRED_GROUPS = ["admin", "provider"];
 
 export const adminRouter = express.Router();
 adminRouter.use(requireAuth, requireRole("admin"));
@@ -52,11 +63,23 @@ adminRouter.get(
   })
 );
 
+// Admin and Service Provider require MFA (docs/Infrastructure-Hosting-Plan.md
+// #4, terraform/modules/auth's cognito_user_group comments) -- Cognito
+// groups themselves carry no per-group MFA policy, and access tokens carry
+// no reliable "MFA was actually performed" claim to check on every
+// request, so this is enforced once, at the point that capability is
+// granted, rather than per-request.
 adminRouter.post(
   "/users/:username/groups/:groupName",
   asyncRoute(async (req, res) => {
     if (!ROLE_GROUPS.includes(req.params.groupName)) {
       return res.status(400).json({ error: `groupName must be one of: ${ROLE_GROUPS.join(", ")}` });
+    }
+    if (MFA_REQUIRED_GROUPS.includes(req.params.groupName)) {
+      const { mfaEnabled } = await getMfaStatus(req.params.username);
+      if (!mfaEnabled) {
+        return res.status(400).json({ error: "This user must enable MFA before being granted this role." });
+      }
     }
     await addUserToGroup(req.params.username, req.params.groupName);
     res.status(204).end();
@@ -199,11 +222,23 @@ adminRouter.patch(
 adminRouter.get(
   "/otps/:id/documents",
   asyncRoute(async (req, res) => {
-    const documents = await withUserContext(req.user, (client) =>
-      client.query("SELECT doc_type, uploaded_by, uploaded_at, s3_key FROM documents WHERE otp_id = $1", [
-        req.params.id,
-      ])
-    );
+    const documents = await withUserContext(req.user, async (client) => {
+      const result = await client.query(
+        "SELECT doc_type, uploaded_by, uploaded_at, s3_key FROM documents WHERE otp_id = $1",
+        [req.params.id]
+      );
+      if (result.rows.length > 0) {
+        await logAudit(client, {
+          actorType: "admin",
+          actorId: req.user.id,
+          action: "document.download",
+          resourceType: "otp",
+          resourceId: req.params.id,
+          ip: req.ip,
+        });
+      }
+      return result;
+    });
     const withUrls = await Promise.all(
       documents.rows.map(async (row) => ({
         docType: row.doc_type,
