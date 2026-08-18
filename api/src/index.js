@@ -8,6 +8,7 @@ import { paymentsRouter } from "./routes/payments.js";
 import { docusignRouter, docusignWebhookRouter } from "./routes/docusign.js";
 import { providersRouter } from "./routes/providers.js";
 import { conveyancerRouter } from "./routes/conveyancer.js";
+import { adminRouter } from "./routes/admin.js";
 
 export const app = express();
 
@@ -35,6 +36,7 @@ app.use("/api", paymentsRouter);
 app.use("/api", docusignRouter);
 app.use("/api", providersRouter);
 app.use("/api", conveyancerRouter);
+app.use("/api", adminRouter);
 
 // Catches anything asyncRoute forwarded via next(err) -- without this,
 // Express 4's default error handler still responds, but with no logging

@@ -125,3 +125,15 @@ columns to `otps` but no new RLS at all: the existing `seller_updates_own_otps`
 policy (`0010`) already covers writing them, since there's no webhook actor
 here -- a conveyancer's own updates are manual/email-driven for now
 (MVP-SPEC.md), unlike payments (#9) or e-signature (#10).
+
+Issue #12 (admin panel) needed **no new migration at all**. Every table
+that matters to a back office already had an `admin_full_access`-style
+`FOR ALL` policy from the epic that created it (`0003` for listings,
+`0008` for enquiries/viewing_requests, `0010` for otps/otp_history, `0012`
+for documents, `0014` for payments) -- this was deliberate from the start
+(see each of those tables' comments), not something added retroactively.
+`api/src/routes/admin.js` is proof that pattern paid off: pure
+route-layer work over RLS that was already correct. Users aren't a table
+in this database at all -- Cognito is the store -- so "manage users" is
+the one part of this epic with no RLS angle whatsoever;
+`api/src/lib/cognito.js` calls Cognito's own Admin* APIs directly.

@@ -105,6 +105,19 @@ presigned-GET pattern from `documents.js`, but with a 7-day TTL instead of
 fetching it immediately. `src/lib/email.js` wraps SES the same way `s3.js`
 wraps S3.
 
+`src/routes/admin.js` (issue #12) is mostly *not* new access control: the
+`admin_full_access`-style policy each table already has
+(`0003`/`0008`/`0010`/`0012`/`0014`) already let an admin cross seller
+boundaries — this epic is largely about exposing routes over RLS that was
+already there. The one genuinely new capability is user management, since
+Cognito is the user store, not Postgres — `src/lib/cognito.js` wraps the
+`Admin*` Cognito API calls (list/get users, group membership, enable/
+disable) the same way `s3.js`/`email.js` wrap their services. The whole
+router is gated once via `adminRouter.use(requireAuth, requireRole("admin"))`
+rather than repeating both on every route — the only route file that does
+this, since every earlier one mixed public/seller/buyer routes in the same
+file and needed per-route control.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -177,3 +190,16 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   `requireAuth`, so — like the checkout/envelope-creation routes in #9/#10
   — it only has a "requires auth" HTTP check; it introduces no RLS of its
   own to test at that layer either (see `db/migrations/0020`'s comment).
+- `src/lib/cognito.js` (issue #12) was going to get the same LocalStack
+  integration test treatment as `s3.js`/`email.js`, but LocalStack's
+  `cognito-idp` emulation turned out to be Pro-only too (same class of
+  limitation as `sesv2` -- confirmed by trying it in CI and getting
+  "not yet implemented or pro feature"). It's implemented against
+  Cognito's documented Admin* API but untested against any real or
+  emulated infra -- the same bucket sign-in JWT verification
+  (`middleware/auth.js`) has always been in. `src/routes/admin.js`'s
+  DB routes (listings/payments/documents oversight) are RLS-tested
+  (`admin.test.js`) instead, same as every other admin-gated route; all of
+  its routes (Cognito-backed or not) get an HTTP "requires auth" check
+  (`admin.http.test.js`), same reasoning as `requireRole`'s 403 branch
+  never being reachable without a real signed-in role either.

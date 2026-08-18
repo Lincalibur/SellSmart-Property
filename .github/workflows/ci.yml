@@ -48,7 +48,12 @@ jobs:
       # same idea for SES -- community support covers classic SES's
       # SendEmailCommand and listing what was sent, which is all
       # api/src/lib/email.js needs (SESv2 is a LocalStack Pro-only feature,
-      # confirmed the hard way -- see email.js's comment).
+      # confirmed the hard way -- see email.js's comment). cognito-idp
+      # (issue #12's lib/cognito.js) was tried the same way and is ALSO
+      # Pro-only in LocalStack community -- confirmed via the same
+      # "not yet implemented or pro feature" error -- so it's not listed
+      # here; that module stays untested against real infra, same bucket
+      # as sign-in JWT verification (see api/README.md).
       localstack:
         image: localstack/localstack:3
         env:
