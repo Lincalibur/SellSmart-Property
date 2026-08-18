@@ -19,10 +19,15 @@ const listingId = "15151515-1515-1515-1515-151515151515";
 const otpId = randomUUID();
 
 before(async () => {
+  // listings/payments/otps each require a different listing status at
+  // insert time (payments needs 'draft', otps needs 'active'), so this
+  // creates the payment first, then flips the listing to 'active' before
+  // creating the otp -- same order the real checkout -> publish -> offer
+  // flow would produce.
   await withUserContext(seller, (client) =>
     client.query(
       `INSERT INTO listings (id, seller_id, title, type, location, price, status)
-       VALUES ($1, $2, 'Admin Test Listing', 'House', 'Cape Town', 1000000, 'active')`,
+       VALUES ($1, $2, 'Admin Test Listing', 'House', 'Cape Town', 1000000, 'draft')`,
       [listingId, seller.id]
     )
   );
@@ -32,6 +37,9 @@ before(async () => {
        VALUES ($1, $2, 'starter', 699, 'Starter listing package')`,
       [listingId, seller.id]
     )
+  );
+  await withUserContext(seller, (client) =>
+    client.query("UPDATE listings SET status = 'active' WHERE id = $1", [listingId])
   );
   await withOtpAccess(otpId, (client) =>
     client.query(
