@@ -39,3 +39,20 @@ from known values instead of reading the row back. Any future anonymous
 INSERT route needs the same treatment; an authenticated INSERT is fine with
 `RETURNING` as long as the actor has SELECT visibility of their own row
 (e.g. sellers reading listings/viewing_requests they own).
+
+`0009_otps.sql` / `0010_otps_rls.sql` (issue #7, OTP builder + offer
+management) extend the unauthenticated-writer pattern to a buyer who needs
+*repeat* access to one row across several requests (submit an offer, later
+accept a counter, later sign) with still no account to key a session var
+off. Instead of `current_setting('app.current_user_id')`, these policies
+pin to `id = current_setting('app.current_otp_id')` — a session var
+`withOtpAccess` (`api/src/db/pool.js`) sets from the id in the URL, which
+the API already required the caller to know. Every `otp_bearer` policy uses
+that exact-id check, never a bare `USING (true)`: with `true`, a future bug
+that ran an unfiltered query anywhere would leak every buyer's name/ID
+number/contact info to an anonymous request; with the exact-id check, the
+same bug can only ever re-expose a row whose id the caller already had.
+Setting `app.current_otp_id` to the id *before* the INSERT (rather than
+generating it in the database) is also what lets `otps` use `RETURNING`
+safely despite being written by an anonymous request — see the gotcha
+above.

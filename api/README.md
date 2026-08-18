@@ -33,6 +33,16 @@ the gotcha noted in `db/README.md` — an anonymous INSERT can't read its own
 row back that way, since RETURNING is filtered through the table's SELECT
 policies and there isn't one that grants an anonymous request visibility.
 
+`src/routes/otps.js` (issue #7) adds a third variant for buyers who need
+*ongoing* access to a single row across several requests (submit an offer,
+later accept a counter, later sign) without an account. Rather than a
+session var tied to the (nonexistent) buyer identity, `withOtpAccess`
+(`src/db/pool.js`) sets a `'otp_bearer'` role plus the specific OTP id from
+the URL — knowing that unguessable uuid *is* the buyer's credential. Every
+`otp_bearer` RLS policy pins to that exact id, never `USING (true)`, so a
+future bug elsewhere can't turn "I know my own OTP's id" into "I can read
+everyone's" — see `db/migrations/0010_otps_rls.sql`.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
