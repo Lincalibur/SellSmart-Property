@@ -65,14 +65,19 @@ test("an otp_bearer (no Cognito account) can still append an audit row", async (
 });
 
 test("even admin cannot update or delete an audit_log row", async () => {
-  await assert.rejects(
-    withUserContext(admin, (client) =>
-      client.query("UPDATE audit_log SET action = 'tampered' WHERE resource_id = $1", [resourceId])
-    )
+  // No UPDATE/DELETE policy at all means FORCE RLS silently matches zero
+  // rows, the same as every other RLS-blocked write in this codebase (see
+  // otps.test.js's "a different seller cannot update it") -- it doesn't
+  // throw.
+  const updated = await withUserContext(admin, (client) =>
+    client.query("UPDATE audit_log SET action = 'tampered' WHERE resource_id = $1 RETURNING id", [resourceId])
   );
-  await assert.rejects(
-    withUserContext(admin, (client) => client.query("DELETE FROM audit_log WHERE resource_id = $1", [resourceId]))
+  assert.equal(updated.rows.length, 0, "no UPDATE policy exists on audit_log for any role");
+
+  const deleted = await withUserContext(admin, (client) =>
+    client.query("DELETE FROM audit_log WHERE resource_id = $1 RETURNING id", [resourceId])
   );
+  assert.equal(deleted.rows.length, 0, "no DELETE policy exists on audit_log for any role");
 });
 
 test("a failed transaction rolls back its audit row along with the event it documents", async () => {
