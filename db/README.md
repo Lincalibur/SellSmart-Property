@@ -64,3 +64,22 @@ already the right access boundary. `documents` is sparse -- a row only
 exists once something has actually been uploaded to S3 (see
 `api/src/routes/documents.js`); "pending" is just the absence of a row for
 that `doc_type`, computed by the frontend.
+
+`0013_payments.sql` / `0014_payments_rls.sql` / `0015_listings_payfast_activation.sql`
+(issue #9, payments) add the mirror-image case: it's the *seller* who
+writes normally (`seller_creates_own_payment`, same seller-owns-it shape
+as `listings`), but PayFast's ITN webhook then writes back with no Cognito
+token at all -- authenticated by verifying PayFast's signature
+(`api/src/lib/payfast.js`), not anything RLS can see. Rather than a role
+that can update any payment, `withPaymentWebhookAccess`
+(`api/src/db/pool.js`) sets `app.current_payment_id` from the ITN's
+`m_payment_id` (a uuid *this API* generated and gave to PayFast at
+checkout), and `0014`'s policy pins to that exact row -- the same
+"id is the capability, never `USING (true)`" pattern as `otp_bearer`.
+`0015` extends that same scoped capability across tables: once verified
+for one payment, it can also flip *that payment's own* `listing_id` from
+draft to active (via a subquery on `payments`, not a second free-standing
+session var) -- see that migration's comment for why `0014` needs a
+`payfast_webhook` SELECT policy too, not just UPDATE: the subquery is
+itself subject to `payments`' RLS, so without SELECT it would silently see
+zero rows and never activate anything.

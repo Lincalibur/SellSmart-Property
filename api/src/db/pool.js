@@ -63,3 +63,26 @@ export async function withOtpAccess(otpId, fn) {
     client.release();
   }
 }
+
+// PayFast's ITN webhook (issue #9) calls in with no Cognito token at all --
+// it's authenticated by verifying PayFast's signature on the payload
+// (api/src/routes/payments.js), not anything RLS can see. Same
+// "the id is the capability" pattern as withOtpAccess: pins to the one
+// payment row the ITN's m_payment_id (a uuid the API generated and gave to
+// PayFast at checkout) refers to, per db/migrations/0014_payments_rls.sql.
+export async function withPaymentWebhookAccess(paymentId, fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT set_config('app.current_user_role', 'payfast_webhook', true)");
+    await client.query("SELECT set_config('app.current_payment_id', $1, true)", [paymentId]);
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

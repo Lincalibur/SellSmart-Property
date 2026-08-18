@@ -52,6 +52,18 @@ presigned GET URLs (list) — the browser talks to S3 directly. `confirm`
 verifies the object actually landed in S3 (`HeadObjectCommand`) before
 writing the `documents` row, rather than trusting the client's say-so.
 
+`src/routes/payments.js` (issue #9) is different from every route above:
+the writer that needs special handling isn't a buyer without an account,
+it's PayFast's own server calling the ITN webhook with no Cognito token at
+all. That's authenticated by recomputing PayFast's MD5 signature over the
+payload (`src/lib/payfast.js`) rather than anything RLS can see — RLS then
+adds a second, narrower layer on top via `withPaymentWebhookAccess`
+(`src/db/pool.js`): once the signature's verified, it's scoped to the one
+payment row the ITN's `m_payment_id` refers to, same "id is the
+capability" pattern as `otp_bearer`. `db/migrations/0015` extends that
+scope to the one listing that payment belongs to, so a completed payment
+can flip it from draft to active.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -95,3 +107,13 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   `aws --endpoint-url=http://localhost:4566 s3 mb s3://<bucket>` and set
   `S3_ENDPOINT=http://localhost:4566` + matching `AWS_ACCESS_KEY_ID` /
   `AWS_SECRET_ACCESS_KEY` — any values work, LocalStack doesn't check them).
+- `src/lib/payfast.test.js` is pure unit tests (no DB, no network) for the
+  signature algorithm — the one part of the PayFast integration verifiable
+  byte-for-byte without a real merchant account.
+  `src/routes/payments.http.test.js` exercises the full ITN webhook over
+  HTTP by computing a valid signature with that same function and posting
+  a form-encoded payload, same as PayFast would — no live PayFast sandbox
+  call involved (there's no self-hostable emulator for it, unlike
+  Postgres/S3), so the seller-initiated checkout side is only tested at
+  the RLS layer (`payments.test.js`), matching every other
+  can't-get-a-real-token route in this API.
