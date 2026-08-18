@@ -45,12 +45,14 @@ jobs:
       # set in terraform/modules/storage, not something the app configures
       # per request, so LocalStack's community S3 support (no Object Lock)
       # is enough to exercise the actual upload/confirm/download code path;
-      # same idea for SES -- community support covers SendEmailCommand and
-      # listing what was sent, which is all api/src/lib/email.js needs.
+      # same idea for SES -- community support covers classic SES's
+      # SendEmailCommand and listing what was sent, which is all
+      # api/src/lib/email.js needs (SESv2 is a LocalStack Pro-only feature,
+      # confirmed the hard way -- see email.js's comment).
       localstack:
         image: localstack/localstack:3
         env:
-          SERVICES: s3,sesv2
+          SERVICES: s3,ses
         ports:
           - 4566:4566
         options: >-
