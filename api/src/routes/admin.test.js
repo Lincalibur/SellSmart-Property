@@ -99,6 +99,40 @@ test("admin can read a document belonging to a different seller's transaction", 
   assert.equal(result.rows[0].doc_type, "buyer_id");
 });
 
+// Issue #14: FICA retention -- admin_full_access on otps/otp_history/
+// payments/documents was replaced with SELECT/INSERT/UPDATE-only policies
+// (db/migrations/0023), so admin can no longer delete these regardless of
+// role. No DELETE policy at all means FORCE RLS blocks it silently (0 rows
+// affected), same mechanism as audit_log's immutability.
+test("admin can no longer delete a payment (retention: FICA/transaction records)", async () => {
+  const result = await withUserContext(admin, (client) =>
+    client.query("DELETE FROM payments WHERE listing_id = $1 RETURNING id", [listingId])
+  );
+  assert.equal(result.rows.length, 0, "no DELETE policy exists on payments any more");
+});
+
+test("admin can no longer delete an otp (retention: legal-hold on signed OTPs)", async () => {
+  const result = await withUserContext(admin, (client) =>
+    client.query("DELETE FROM otps WHERE id = $1 RETURNING id", [otpId])
+  );
+  assert.equal(result.rows.length, 0, "no DELETE policy exists on otps any more");
+});
+
+test("admin can no longer delete a document", async () => {
+  const result = await withUserContext(admin, (client) =>
+    client.query("DELETE FROM documents WHERE otp_id = $1 RETURNING id", [otpId])
+  );
+  assert.equal(result.rows.length, 0, "no DELETE policy exists on documents any more");
+});
+
+test("admin still can insert and update an otp (retention only removes DELETE)", async () => {
+  const updated = await withUserContext(admin, (client) =>
+    client.query("UPDATE otps SET status = 'accepted' WHERE id = $1 RETURNING status", [otpId])
+  );
+  assert.equal(updated.rows.length, 1);
+  assert.equal(updated.rows[0].status, "accepted");
+});
+
 test("a non-admin seller still cannot cross into another seller's listing", async () => {
   const otherSeller = { id: "admin-test-seller-2", groups: ["seller"] };
   const result = await withUserContext(otherSeller, (client) =>

@@ -6,6 +6,7 @@ import { withOtpAccess, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
 import { notifyDocumentUploaded } from "../lib/notify.js";
+import { logAudit } from "../lib/audit.js";
 
 export const documentsRouter = express.Router();
 
@@ -102,12 +103,27 @@ async function handleConfirm(req, res, runInContext, uploadedBy) {
   res.status(201).json(toDocumentJson(result.document));
 }
 
-async function handleList(req, res, runInContext) {
-  const documents = await runInContext((client) =>
-    client.query("SELECT doc_type, uploaded_by, uploaded_at, s3_key FROM documents WHERE otp_id = $1", [
-      req.params.id,
-    ])
-  );
+async function handleList(req, res, runInContext, actor) {
+  const documents = await runInContext(async (client) => {
+    const result = await client.query(
+      "SELECT doc_type, uploaded_by, uploaded_at, s3_key FROM documents WHERE otp_id = $1",
+      [req.params.id]
+    );
+    // A presigned GET is what actually gates viewing/downloading the file
+    // (the client never gets the object without one) -- issuing it here is
+    // the real "document.download" event, not just a metadata listing.
+    if (result.rows.length > 0) {
+      await logAudit(client, {
+        actorType: actor.type,
+        actorId: actor.id,
+        action: "document.download",
+        resourceType: "otp",
+        resourceId: req.params.id,
+        ip: req.ip,
+      });
+    }
+    return result;
+  });
   const withUrls = await Promise.all(
     documents.rows.map(async (row) => ({
       ...toDocumentJson(row),
@@ -128,7 +144,9 @@ documentsRouter.post(
 );
 documentsRouter.get(
   "/otps/:id/documents",
-  asyncRoute((req, res) => handleList(req, res, (fn) => withOtpAccess(req.params.id, fn)))
+  asyncRoute((req, res) =>
+    handleList(req, res, (fn) => withOtpAccess(req.params.id, fn), { type: "buyer", id: null })
+  )
 );
 
 // Seller side.
@@ -148,5 +166,7 @@ documentsRouter.get(
   "/otps/mine/:id/documents",
   requireAuth,
   requireRole("seller"),
-  asyncRoute((req, res) => handleList(req, res, (fn) => withUserContext(req.user, fn)))
+  asyncRoute((req, res) =>
+    handleList(req, res, (fn) => withUserContext(req.user, fn), { type: "seller", id: req.user.id })
+  )
 );

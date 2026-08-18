@@ -12,6 +12,12 @@ import { adminRouter } from "./routes/admin.js";
 
 export const app = express();
 
+// Needed so req.ip reflects the real client address behind CloudFront/ALB
+// (X-Forwarded-For) rather than the proxy's own -- api/src/lib/audit.js
+// (issue #14) records it as part of every audit_log row, so an untrusted
+// proxy setting would make that field meaningless in production.
+app.set("trust proxy", true);
+
 // Mounted before express.json(): DocuSign Connect's webhook needs the raw
 // request body (its HMAC signature is over the exact bytes sent, see
 // routes/docusign.js), and it sends Content-Type: application/json, so

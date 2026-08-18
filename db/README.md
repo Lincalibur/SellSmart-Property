@@ -149,3 +149,53 @@ which now resolve both parties' email server-side (this column for the
 buyer, `lib/cognito.js` for the seller) instead of trusting either from
 a request. No RLS change needed: it's just a new column on a table whose
 existing policies already cover writing it.
+
+`0022_audit_log.sql` (issue #14, compliance hardening) adds the first table
+in this schema with **no UPDATE/DELETE policy for any role, including
+admin** — a deliberate deviation from the `admin_full_access` `FOR ALL`
+convention every earlier table uses. Under `FORCE ROW LEVEL SECURITY`, no
+policy for an action means that action is blocked entirely, so this makes
+every `audit_log` row genuinely immutable once written; an audit trail
+admin can edit or delete isn't an audit trail. Its INSERT policy is a bare
+`WITH CHECK (true)` — the one other legitimate use of `true` besides
+`0019`'s public directory read, since this table is only ever written by
+trusted server code (`api/src/lib/audit.js`) alongside the event it
+documents, never by a public/client-facing route directly. It also never
+uses `RETURNING` (same anonymous-insert workaround as the gotcha above), so
+no writer role needs a matching SELECT policy — a `payfast_webhook` or
+`otp_bearer` context can append a row despite having no SELECT policy on
+this table at all.
+
+`0023_retention_no_admin_delete.sql` (issue #14) applies the same
+no-DELETE-policy-at-all immutability mechanism to `otps`, `otp_history`,
+`payments` and `documents` — FICA requires minimum 5-year retention on
+these, and S3 Object Lock already WORM-protects the uploaded *files*
+(`terraform/modules/storage`), but nothing stopped admin from deleting the
+*rows* before then. Each table's `admin_full_access` `FOR ALL` policy is
+replaced with separate SELECT/INSERT/UPDATE policies (same condition, just
+no DELETE grant) rather than dropped outright — admin still needs to read,
+create and correct these rows for support/back-office work, just never
+delete them. `listings` is untouched: no retention requirement applies to
+a listing itself, only to the transaction/FICA records referencing it.
+
+**Encryption verification (issue #14).** `docs/Infrastructure-Hosting-Plan.md`
+#4 requires "TLS 1.2+ in transit; AES-256 at rest for DB and document store;
+provider-managed KMS with key rotation." All of it was already provisioned
+by earlier epics -- this is a checklist of exactly where, not new work:
+- **DB at rest:** `aws_rds_cluster.this` sets `storage_encrypted = true` with
+  a customer-managed, rotation-enabled KMS key (`terraform/modules/database/main.tf`).
+- **DB in transit:** `api/src/db/pool.js` connects with `ssl: { rejectUnauthorized: true }`
+  unless `DATABASE_SSL=false` is explicitly set (only true in CI, against a
+  local Postgres service image with no SSL support at all).
+- **S3 at rest:** both the `documents` and `photos` buckets have
+  `aws_s3_bucket_server_side_encryption_configuration` set to `aws:kms`
+  against a shared customer-managed key (`terraform/modules/storage/main.tf`);
+  the documents bucket also has Object Lock enabled (the retention/WORM
+  control above).
+- **CDN in transit:** both CloudFront cache behaviors set
+  `viewer_protocol_policy = "redirect-to-https"` (`terraform/modules/cdn/main.tf`).
+- **Known open gap, not fixable yet:** `viewer_certificate` still uses
+  `cloudfront_default_certificate = true`, which can't pin
+  `minimum_protocol_version` to TLS 1.2 -- that field only takes effect with
+  a custom ACM certificate. Blocked on having a real domain name; revisit
+  once one exists.

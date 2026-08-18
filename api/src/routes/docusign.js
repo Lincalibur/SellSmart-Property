@@ -5,6 +5,7 @@ import { asyncRoute } from "../middleware/asyncRoute.js";
 import { createEnvelope, createRecipientView, verifyConnectSignature } from "../lib/docusign.js";
 import { getUser } from "../lib/cognito.js";
 import { notifyOtpSigned } from "../lib/notify.js";
+import { logAudit } from "../lib/audit.js";
 
 export const docusignRouter = express.Router();
 
@@ -190,6 +191,18 @@ docusignWebhookRouter.post(
           `INSERT INTO otp_history (otp_id, seller_id, event, by_party) VALUES ($1, $2, $3, $4)`,
           [otp.id, otp.seller_id, `Signed by ${party}`, party]
         );
+        // req.ip here is DocuSign Connect's own server, not the signer's --
+        // the same limitation applies to any webhook-driven audit entry,
+        // since the signer's browser never talks to this API directly.
+        await logAudit(client, {
+          actorType: party,
+          actorId: party === "buyer" ? otp.buyer_email : otp.seller_id,
+          action: "offer.signed",
+          resourceType: "otp",
+          resourceId: otp.id,
+          ip: req.ip,
+          metadata: { envelopeId },
+        });
         signedParties.push(party);
       }
       return { ok: true, sellerId: otp.seller_id, buyerEmail: otp.buyer_email, signedParties };

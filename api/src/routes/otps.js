@@ -4,6 +4,7 @@ import { pool, withOtpAccess, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
 import { notifyCounterAccepted, notifyNewOffer, notifySellerResponse } from "../lib/notify.js";
+import { logAudit } from "../lib/audit.js";
 
 export const otpsRouter = express.Router();
 
@@ -124,6 +125,14 @@ otpsRouter.post(
          VALUES ($1, $2, 'Offer submitted', 'buyer', $3)`,
         [id, listing.rows[0].seller_id, offerPrice]
       );
+      await logAudit(client, {
+        actorType: "buyer",
+        actorId: buyer.email,
+        action: "offer.submitted",
+        resourceType: "otp",
+        resourceId: id,
+        ip: req.ip,
+      });
       return { ...toOtpJson(inserted.rows[0]), history: await fetchHistory(client, id) };
     });
 
@@ -200,6 +209,14 @@ otpsRouter.post(
          VALUES ($1, $2, 'Counter-offer accepted', 'buyer', $3)`,
         [req.params.id, current.rows[0].seller_id, current.rows[0].counter_price]
       );
+      await logAudit(client, {
+        actorType: "buyer",
+        actorId: null,
+        action: "offer.counter_accepted",
+        resourceType: "otp",
+        resourceId: req.params.id,
+        ip: req.ip,
+      });
       return {
         otp: { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) },
         notify: { sellerId: current.rows[0].seller_id, listingTitle: current.rows[0].listing_title, counterPrice: current.rows[0].counter_price },
@@ -268,6 +285,15 @@ otpsRouter.patch(
          VALUES ($1, $2, $3, 'seller', $4)`,
         [req.params.id, req.user.id, historyEvent, historyAmount]
       );
+      await logAudit(client, {
+        actorType: "seller",
+        actorId: req.user.id,
+        action: `offer.${decision}`,
+        resourceType: "otp",
+        resourceId: req.params.id,
+        ip: req.ip,
+        metadata: decision === "counter" ? { counterPrice } : undefined,
+      });
       return { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) };
     });
 
