@@ -21,8 +21,9 @@ Every protected route follows this shape:
    improvement; step 3 is what actually protects the data even if a future
    bug lets a bad request past the middleware.
 
-`GET /api/listings/mine` in `src/index.js` is the reference implementation —
-copy this shape for every new protected route in later epics.
+`src/routes/listings.js` (issue #5) is the fullest example — public
+browse/search/detail routes plus seller-owned create/update/delete, all
+built on the same pattern.
 
 ## Local development
 
@@ -32,8 +33,23 @@ npm install
 npm run dev
 ```
 
+Against a local Postgres (which typically has no SSL configured, unlike
+Aurora), apply migrations with:
+
+```
+DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false node scripts/migrate.js
+```
+
 ## Testing
 
-`npm test` runs a smoke test only (confirms the app wires up without a live
-database or Cognito pool). Real request/response tests land with the
-listings & search epic once there's a database to run them against.
+`npm test` runs everything under `src/`:
+
+- `src/index.test.js` is a smoke test only (confirms the app wires up, no
+  database or Cognito pool needed).
+- `src/routes/listings.test.js` and `listings.http.test.js` are real
+  request/response and RLS tests and need a live `DATABASE_URL` with
+  migrations applied (see `scripts/migrate.js` and the `api-test` CI job for
+  how to set one up locally). There's no way to get a real Cognito token
+  without an AWS account, so these call `withUserContext` directly with the
+  same shape of user object `requireAuth` attaches — that's the actual
+  security boundary (RLS), not the JWT verification step.

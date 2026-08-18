@@ -26,6 +26,28 @@ jobs:
     defaults:
       run:
         working-directory: api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sellsmart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Non-superuser, owns everything it migrates -- mirrors the Aurora
+      # master user in production (see db/migrations/0006_listings_force_rls.sql)
+      # so RLS is actually exercised, not silently bypassed by a superuser.
+      DATABASE_URL: postgres://app_test:app_test@localhost:5432/sellsmart_test
+      # The postgres:16 service image doesn't have SSL configured; pool.js
+      # defaults to requiring it, so this is needed for every connection,
+      # including scripts/migrate.js, to succeed.
+      DATABASE_SSL: "false"
     steps:
       - uses: actions/checkout@v4
 
@@ -36,4 +58,11 @@ jobs:
           cache-dependency-path: api/package-lock.json
 
       - run: npm ci
+
+      - name: Create non-superuser app role
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d sellsmart_test -c \
+            "CREATE ROLE app_test LOGIN PASSWORD 'app_test'; GRANT ALL ON SCHEMA public TO app_test;"
+
+      - run: node scripts/migrate.js
       - run: npm test
