@@ -43,6 +43,15 @@ the URL — knowing that unguessable uuid *is* the buyer's credential. Every
 future bug elsewhere can't turn "I know my own OTP's id" into "I can read
 everyone's" — see `db/migrations/0010_otps_rls.sql`.
 
+`src/routes/documents.js` (issue #8) reuses the `otp_bearer` capability
+unchanged for the buyer side (a document belongs to an OTP transaction, so
+"knows the OTP id" is still the right boundary) plus the normal seller
+pattern. Uploads never stream through this API: `src/lib/s3.js` wraps the
+S3 client, and routes only ever hand back a presigned PUT URL (upload) or
+presigned GET URLs (list) — the browser talks to S3 directly. `confirm`
+verifies the object actually landed in S3 (`HeadObjectCommand`) before
+writing the `documents` row, rather than trusting the client's say-so.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -78,3 +87,11 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   without an AWS account, so these call `withUserContext` directly with the
   same shape of user object `requireAuth` attaches — that's the actual
   security boundary (RLS), not the JWT verification step.
+- `src/routes/documents.http.test.js` additionally needs a real
+  S3-compatible endpoint (`S3_ENDPOINT` + `DOCUMENTS_BUCKET`) -- CI points
+  this at a [LocalStack](https://localstack.cloud) service container (see
+  `.github/workflows/ci.yml`); run one locally the same way
+  (`docker run -p 4566:4566 localstack/localstack`, then
+  `aws --endpoint-url=http://localhost:4566 s3 mb s3://<bucket>` and set
+  `S3_ENDPOINT=http://localhost:4566` + matching `AWS_ACCESS_KEY_ID` /
+  `AWS_SECRET_ACCESS_KEY` — any values work, LocalStack doesn't check them).

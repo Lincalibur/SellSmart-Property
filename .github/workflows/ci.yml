@@ -39,6 +39,23 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Emulates S3 for issue #8 (document hub) -- same reasoning as the
+      # real Postgres above: the RLS/access-control layer is worth testing
+      # for real, not mocking. Object Lock itself is a bucket-level default
+      # set in terraform/modules/storage, not something the app configures
+      # per request, so LocalStack's community S3 support (no Object Lock)
+      # is enough to exercise the actual upload/confirm/download code path.
+      localstack:
+        image: localstack/localstack:3
+        env:
+          SERVICES: s3
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       # Non-superuser, owns everything it migrates -- mirrors the Aurora
       # master user in production (see db/migrations/0006_listings_force_rls.sql)
@@ -48,6 +65,11 @@ jobs:
       # defaults to requiring it, so this is needed for every connection,
       # including scripts/migrate.js, to succeed.
       DATABASE_SSL: "false"
+      S3_ENDPOINT: http://localhost:4566
+      DOCUMENTS_BUCKET: sellsmart-property-documents-test
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: af-south-1
     steps:
       - uses: actions/checkout@v4
 
@@ -63,6 +85,9 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d sellsmart_test -c \
             "CREATE ROLE app_test LOGIN PASSWORD 'app_test'; ALTER DATABASE sellsmart_test OWNER TO app_test; GRANT ALL ON SCHEMA public TO app_test;"
+
+      - name: Create S3 bucket in LocalStack
+        run: aws --endpoint-url=http://localhost:4566 s3 mb s3://sellsmart-property-documents-test
 
       - run: node scripts/migrate.js
       - run: npm test

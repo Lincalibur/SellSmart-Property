@@ -56,3 +56,11 @@ Setting `app.current_otp_id` to the id *before* the INSERT (rather than
 generating it in the database) is also what lets `otps` use `RETURNING`
 safely despite being written by an anonymous request — see the gotcha
 above.
+
+`0011_documents.sql` / `0012_documents_rls.sql` (issue #8, document hub)
+reuse the `otp_bearer` role unchanged rather than inventing a new one: a
+document belongs to an OTP (transaction), so "knows that OTP's id" is
+already the right access boundary. `documents` is sparse -- a row only
+exists once something has actually been uploaded to S3 (see
+`api/src/routes/documents.js`); "pending" is just the absence of a row for
+that `doc_type`, computed by the frontend.
