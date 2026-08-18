@@ -17,6 +17,16 @@ before(async () => {
       [listingId, seller.id]
     )
   );
+  const listingCheck = await pool.query(
+    "SELECT id, seller_id, status FROM listings WHERE id = $1",
+    [listingId]
+  );
+  process.stderr.write("DIAG listing visible to anon: " + JSON.stringify(listingCheck.rows) + "\n");
+  const policies = await pool.query(
+    "SELECT policyname, cmd, with_check FROM pg_policies WHERE tablename = 'viewing_requests'"
+  );
+  process.stderr.write("DIAG policies: " + JSON.stringify(policies.rows) + "\n");
+
   const inserted = await pool.query(
     `INSERT INTO viewing_requests (listing_id, seller_id, name, email, requested_date, requested_time)
      VALUES ($1, $2, 'Buyer One', 'buyer@example.com', '2026-09-01', '10:00')

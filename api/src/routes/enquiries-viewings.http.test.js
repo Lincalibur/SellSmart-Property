@@ -7,7 +7,9 @@ import { withUserContext, pool } from "../db/pool.js";
 process.env.NODE_ENV = "test";
 process.env.COGNITO_USER_POOL_ID = "af-south-1_test";
 
+process.stderr.write("DIAG: before import\n");
 const { app } = await import("../index.js");
+process.stderr.write("DIAG: after import\n");
 
 const seller = { id: "http-enq-seller-1", groups: ["seller"] };
 const activeListingId = "88888888-8888-8888-8888-888888888888";
@@ -16,6 +18,7 @@ let server;
 let baseUrl;
 
 before(async () => {
+  process.stderr.write("DIAG: before hook start\n");
   await withUserContext(seller, (client) =>
     client.query(
       `INSERT INTO listings (id, seller_id, title, type, location, price, status)
@@ -25,9 +28,11 @@ before(async () => {
       [activeListingId, draftListingId, seller.id]
     )
   );
+  process.stderr.write("DIAG: listings inserted\n");
   await new Promise((resolve) => {
     server = app.listen(0, resolve);
   });
+  process.stderr.write("DIAG: server listening\n");
   baseUrl = `http://localhost:${server.address().port}`;
 });
 
