@@ -1,0 +1,19 @@
+[Unit]
+Description=Refresh and (re)start the SellSmart-Property QA environment
+# Not enabled/started by this file automatically -- see
+# docs/QA-Server-Operations.md for the one-time `systemctl enable` step.
+# Waits for Docker and a real network route (not just link-up) before
+# running, since git fetch/docker pull both need real connectivity, not
+# just an interface existing.
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=lincalibur
+WorkingDirectory=/home/lincalibur/sellsmart-property
+ExecStart=/home/lincalibur/sellsmart-property/deploy/qa-refresh.sh
+
+[Install]
+WantedBy=multi-user.target
