@@ -86,3 +86,27 @@ export async function withPaymentWebhookAccess(paymentId, fn) {
     client.release();
   }
 }
+
+// DocuSign Connect's completion webhook (issue #10) calls in with no
+// Cognito token either, authenticated by an HMAC signature on the payload
+// (api/src/lib/docusign.js), not anything RLS can see. Same pattern again,
+// but keyed on envelope_id rather than an id this API minted itself --
+// DocuSign generates it when the envelope is created, and the API only
+// learns it afterward (db/migrations/0016_otps_envelope.sql,
+// 0017_otps_envelope_rls.sql).
+export async function withDocusignWebhookAccess(envelopeId, fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT set_config('app.current_user_role', 'docusign_webhook', true)");
+    await client.query("SELECT set_config('app.current_envelope_id', $1, true)", [envelopeId]);
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

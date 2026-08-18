@@ -94,3 +94,18 @@ ones). The fix was adding a matching `payfast_webhook_reads_activatable_listing`
 SELECT policy alongside the UPDATE one. Apply the same check to any future
 UPDATE/DELETE-only policy on a table: does *some* SELECT policy also cover
 that role for the rows it needs to target?
+
+`0016_otps_envelope.sql` / `0017_otps_envelope_rls.sql` (issue #10,
+e-signature) replace the simulated Sign OTP step with a real DocuSign
+envelope, and introduce a `docusign_webhook` role -- same "id is the
+capability" shape as `payfast_webhook`, but keyed on `envelope_id`
+(`UNIQUE`, since it's looked up *by* value) rather than a uuid this API
+minted itself, because DocuSign is the one that generates it, only handed
+back once the envelope is created. `0017` applies `0015`'s lesson from the
+start: the UPDATE policy on `otps` and its matching SELECT policy are
+added together, and the `otp_history` INSERT's `WITH CHECK` subquery back
+to `otps` works because that SELECT policy already grants visibility for
+it (the same reason `0014`'s `payfast_webhook_reads_own_payment` was
+needed for its own INSERT-subquery cross-checks) -- confirms the earlier
+"cross-table subquery" red herring from `0015`'s development was never the
+real problem; the missing SELECT policy always was.

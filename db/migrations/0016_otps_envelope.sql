@@ -1,0 +1,13 @@
+-- Epic #10: replaces the simulated Sign OTP step (issue #7's
+-- signed_by_buyer/signed_by_seller booleans, previously flipped directly
+-- by a client POST) with a real DocuSign envelope. Those two columns keep
+-- their meaning and their otp_history audit trail unchanged -- only *who*
+-- sets them changes: the DocuSign Connect webhook
+-- (api/src/routes/docusign.js), driven by actual signing completion,
+-- rather than a client-trusted POST.
+-- UNIQUE (not just indexed) because db/migrations/0017's docusign_webhook
+-- role looks a row up *by* envelope_id -- same "the id is the capability"
+-- shape as payments.id for payfast_webhook (see 0014), just a different
+-- column, since envelope_id is DocuSign's identifier, generated only after
+-- we call their API, not one we mint ourselves up front like otps.id.
+ALTER TABLE otps ADD COLUMN envelope_id text UNIQUE;
