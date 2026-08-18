@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Real secrets (Cognito, PayFast, DocuSign, SES, DATABASE_URL, etc.) --
+# .env.example (api/.env.example) documents the keys but stays committed
+# with blank/placeholder values, same convention as every other epic since
+# issue #4. This was never actually ignored before (*.local above doesn't
+# match .env) -- nothing's been committed so far, but this closes the gap
+# before a real .env file exists to accidentally catch.
+.env
+.env.*
+!.env.example
+!**/.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
