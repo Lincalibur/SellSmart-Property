@@ -38,3 +38,28 @@ export async function withUserContext(user, fn) {
     client.release();
   }
 }
+
+// Buyers don't have accounts yet (see db/README.md), so OTPs/offers
+// (issue #7) use a capability model instead of requireAuth: knowing the
+// OTP's unguessable uuid is what proves it's yours. Rather than a
+// permissive `USING (true)` SELECT policy -- which would leak every OTP's
+// buyer PII to anonymous requests if a future bug ever ran an unfiltered
+// query -- this sets a session var the RLS policies in
+// db/migrations/0010_otps_rls.sql pin to the *one* row the API already
+// validated the caller knows the id of.
+export async function withOtpAccess(otpId, fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT set_config('app.current_user_role', 'otp_bearer', true)");
+    await client.query("SELECT set_config('app.current_otp_id', $1, true)", [otpId]);
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

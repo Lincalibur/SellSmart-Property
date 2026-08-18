@@ -2,6 +2,7 @@ import express from "express";
 import { listingsRouter } from "./routes/listings.js";
 import { enquiriesRouter } from "./routes/enquiries.js";
 import { viewingsRouter } from "./routes/viewings.js";
+import { otpsRouter } from "./routes/otps.js";
 
 export const app = express();
 app.use(express.json());
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/listings", listingsRouter);
 app.use("/api", enquiriesRouter);
 app.use("/api", viewingsRouter);
+app.use("/api", otpsRouter);
 
 // Catches anything asyncRoute forwarded via next(err) -- without this,
 // Express 4's default error handler still responds, but with no logging
