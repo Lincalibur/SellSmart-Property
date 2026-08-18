@@ -95,6 +95,14 @@ test("payfast_webhook scoped to THIS payment id can update it, and (once explici
     // payments row it just read, and sets this explicitly rather than
     // relying on a subquery inside the RLS policy -- see db/migrations/0015.
     await client.query("SELECT set_config('app.current_activatable_listing_id', $1, true)", [draftListingId]);
+    const gucCheck = await client.query(
+      "SELECT current_setting('app.current_activatable_listing_id', true) AS v, current_setting('app.current_user_role', true) AS r"
+    );
+    process.stderr.write("DIAG guc: " + JSON.stringify(gucCheck.rows[0]) + " expected=" + draftListingId + "\n");
+    const noopUpdate = await client.query("UPDATE listings SET status = status WHERE id = $1 RETURNING status", [
+      draftListingId,
+    ]);
+    process.stderr.write("DIAG no-op update (no status filter) rows: " + noopUpdate.rows.length + "\n");
     const listing = await client.query(
       "UPDATE listings SET status = 'active' WHERE id = $1 AND status = 'draft' RETURNING status",
       [draftListingId]
