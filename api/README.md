@@ -23,7 +23,12 @@ Every protected route follows this shape:
 
 `src/routes/listings.js` (issue #5) is the fullest example — public
 browse/search/detail routes plus seller-owned create/update/delete, all
-built on the same pattern.
+built on the same pattern. `src/routes/enquiries.js` and
+`src/routes/viewings.js` (issue #6) add the public-insert / seller-reads-own
+variant: an unauthenticated POST that looks the owning seller up
+server-side rather than trusting it from the request body, backed by a
+`WITH CHECK` in `db/migrations/0008_enquiries_viewings_rls.sql` that
+verifies it anyway.
 
 ## Local development
 
@@ -46,8 +51,8 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
 
 - `src/index.test.js` is a smoke test only (confirms the app wires up, no
   database or Cognito pool needed).
-- `src/routes/listings.test.js` and `listings.http.test.js` are real
-  request/response and RLS tests and need a live `DATABASE_URL` with
+- Everything else under `src/routes/` (`*.test.js` and `*.http.test.js`) is
+  real request/response and RLS tests and needs a live `DATABASE_URL` with
   migrations applied (see `scripts/migrate.js` and the `api-test` CI job for
   how to set one up locally). There's no way to get a real Cognito token
   without an AWS account, so these call `withUserContext` directly with the

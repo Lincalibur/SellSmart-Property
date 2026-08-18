@@ -17,3 +17,12 @@ as the owner of every table it migrates — `FORCE ROW LEVEL SECURITY` is what
 actually makes the policies bind in that setup. Apply the same
 owner-connects-as-itself assumption (and the same FORCE) to any new table
 until that changes.
+
+`0007_enquiries_viewings.sql` / `0008_enquiries_viewings_rls.sql` (issue #6)
+add a variant of the pattern for unauthenticated writes: buyers submitting
+an enquiry or viewing request don't have an account, so the INSERT policy
+can't check `current_setting('app.current_user_id')` against anything. It
+instead cross-checks the submitted `seller_id` against the listing's actual
+`seller_id` (and that the listing is `active`) via a `WITH CHECK` subquery
+— the API route looks the seller up server-side rather than trusting the
+request body, but this is the real backstop if that ever regresses.

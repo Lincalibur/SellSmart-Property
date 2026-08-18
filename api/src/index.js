@@ -1,5 +1,7 @@
 import express from "express";
 import { listingsRouter } from "./routes/listings.js";
+import { enquiriesRouter } from "./routes/enquiries.js";
+import { viewingsRouter } from "./routes/viewings.js";
 
 export const app = express();
 app.use(express.json());
@@ -12,6 +14,8 @@ app.get("/health", (_req, res) => {
 // See api/src/routes/listings.js for the auth/RBAC + RLS pattern every
 // protected route follows -- copy its shape for later epics.
 app.use("/api/listings", listingsRouter);
+app.use("/api", enquiriesRouter);
+app.use("/api", viewingsRouter);
 
 const port = process.env.PORT ?? 3000;
 
