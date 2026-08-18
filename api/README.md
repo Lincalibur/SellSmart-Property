@@ -64,6 +64,30 @@ capability" pattern as `otp_bearer`. `db/migrations/0015` extends that
 scope to the one listing that payment belongs to, so a completed payment
 can flip it from draft to active.
 
+`src/routes/docusign.js` (issue #10) replaces the previously-simulated Sign
+OTP step with a real DocuSign envelope, and adds a *third* webhook
+identifier shape: DocuSign Connect's completion webhook is authenticated
+the same "no Cognito token, verify a signature instead" way as PayFast's
+ITN, but the id it hands back (`envelopeId`) is one DocuSign generates when
+the envelope is created, not one this API minted up front (contrast
+`otps.id`/`payments.id`, which the API always controls). `withDocusignWebhookAccess`
+(`src/db/pool.js`) scopes RLS by that id once it's known and stored on the
+`otps` row — see `db/migrations/0016_otps_envelope.sql` /
+`0017_otps_envelope_rls.sql`. Both parties are *embedded* signers
+(`clientUserId` in `src/lib/docusign.js`'s `createEnvelope`), matching the
+Signing Screen's "you never leave SellSmart Property" promise — no email
+with a DocuSign-hosted link.
+
+**Body-parsing gotcha found here:** the Connect webhook's HMAC signature
+covers the *raw* request bytes, so it needs `express.raw()`, not
+`express.json()` — but DocuSign sends `Content-Type: application/json`,
+which the app-level `express.json()` in `index.js` would otherwise match
+and consume first. `docusignWebhookRouter` is a separate router mounted
+*before* `app.use(express.json())` specifically to avoid this (PayFast's
+ITN webhook never hit this problem only because form-urlencoded's
+different content-type doesn't match `express.json()`'s filter — that was
+luck, not a pattern to rely on for a future JSON-body webhook).
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -117,3 +141,10 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   Postgres/S3), so the seller-initiated checkout side is only tested at
   the RLS layer (`payments.test.js`), matching every other
   can't-get-a-real-token route in this API.
+- `src/lib/docusign.test.js` (issue #10) is the same pattern again for
+  DocuSign Connect's HMAC signature. `src/routes/docusign.http.test.js`
+  exercises the webhook fully over HTTP the same way `payments.http.test.js`
+  does; the JWT Grant/envelope/recipient-view calls in `src/lib/docusign.js`
+  are implemented against DocuSign's documented REST API but, like Cognito
+  token verification, are never exercised for real in CI — no DocuSign
+  account of any kind exists yet.

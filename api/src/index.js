@@ -5,8 +5,16 @@ import { viewingsRouter } from "./routes/viewings.js";
 import { otpsRouter } from "./routes/otps.js";
 import { documentsRouter } from "./routes/documents.js";
 import { paymentsRouter } from "./routes/payments.js";
+import { docusignRouter, docusignWebhookRouter } from "./routes/docusign.js";
 
 export const app = express();
+
+// Mounted before express.json(): DocuSign Connect's webhook needs the raw
+// request body (its HMAC signature is over the exact bytes sent, see
+// routes/docusign.js), and it sends Content-Type: application/json, so
+// express.json() below would otherwise consume it first.
+app.use("/api", docusignWebhookRouter);
+
 app.use(express.json());
 
 // Matches the ALB target group health check path in terraform/modules/compute.
@@ -22,6 +30,7 @@ app.use("/api", viewingsRouter);
 app.use("/api", otpsRouter);
 app.use("/api", documentsRouter);
 app.use("/api", paymentsRouter);
+app.use("/api", docusignRouter);
 
 // Catches anything asyncRoute forwarded via next(err) -- without this,
 // Express 4's default error handler still responds, but with no logging
