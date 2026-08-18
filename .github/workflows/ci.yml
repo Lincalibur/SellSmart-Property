@@ -39,16 +39,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # Emulates S3 for issue #8 (document hub) -- same reasoning as the
+      # Emulates S3 (issue #8) and SES (issue #11) -- same reasoning as the
       # real Postgres above: the RLS/access-control layer is worth testing
       # for real, not mocking. Object Lock itself is a bucket-level default
       # set in terraform/modules/storage, not something the app configures
       # per request, so LocalStack's community S3 support (no Object Lock)
-      # is enough to exercise the actual upload/confirm/download code path.
+      # is enough to exercise the actual upload/confirm/download code path;
+      # same idea for SES -- community support covers classic SES's
+      # SendEmailCommand and listing what was sent, which is all
+      # api/src/lib/email.js needs (SESv2 is a LocalStack Pro-only feature,
+      # confirmed the hard way -- see email.js's comment).
       localstack:
         image: localstack/localstack:3
         env:
-          SERVICES: s3
+          SERVICES: s3,ses
         ports:
           - 4566:4566
         options: >-
@@ -67,6 +71,8 @@ jobs:
       DATABASE_SSL: "false"
       S3_ENDPOINT: http://localhost:4566
       DOCUMENTS_BUCKET: sellsmart-property-documents-test
+      SES_ENDPOINT: http://localhost:4566
+      EMAIL_FROM: no-reply@sellsmartproperty.example
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_REGION: af-south-1
@@ -88,6 +94,9 @@ jobs:
 
       - name: Create S3 bucket in LocalStack
         run: aws --endpoint-url=http://localhost:4566 s3 mb s3://sellsmart-property-documents-test
+
+      - name: Verify the sender identity in LocalStack's SES
+        run: aws --endpoint-url=http://localhost:4566 ses verify-email-identity --email-address no-reply@sellsmartproperty.example
 
       - run: node scripts/migrate.js
       - run: npm test
