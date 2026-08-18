@@ -137,6 +137,12 @@ paymentsRouter.post(
         [paymentId, status, fields.pf_payment_id ?? null]
       );
       if (status === "complete") {
+        // See db/migrations/0015 for why this is a second explicit session
+        // var (set now that the listing_id is actually known) rather than
+        // a subquery inside the RLS policy.
+        await client.query("SELECT set_config('app.current_activatable_listing_id', $1, true)", [
+          current.rows[0].listing_id,
+        ]);
         await client.query(
           "UPDATE listings SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'draft'",
           [current.rows[0].listing_id]

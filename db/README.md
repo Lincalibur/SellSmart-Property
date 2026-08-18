@@ -78,8 +78,15 @@ checkout), and `0014`'s policy pins to that exact row -- the same
 "id is the capability, never `USING (true)`" pattern as `otp_bearer`.
 `0015` extends that same scoped capability across tables: once verified
 for one payment, it can also flip *that payment's own* `listing_id` from
-draft to active (via a subquery on `payments`, not a second free-standing
-session var) -- see that migration's comment for why `0014` needs a
-`payfast_webhook` SELECT policy too, not just UPDATE: the subquery is
-itself subject to `payments`' RLS, so without SELECT it would silently see
-zero rows and never activate anything.
+draft to active. This one uses a second, explicit session var
+(`app.current_activatable_listing_id`, set once the API already knows the
+value from the payments row it just read) rather than a subquery inside
+the policy pointing back at `payments` -- a cross-table subquery in an
+UPDATE's `USING` clause between two FORCE RLS tables that each reference
+the other consistently matched zero rows in testing despite every
+component of the boolean logic checking out individually when queried
+directly. Not worth chasing further given the direct id-in-session-var
+version (the same pattern `otp_bearer`/`payfast_webhook` already use
+everywhere else) sidesteps it entirely -- worth remembering if a future
+table's RLS needs to reference another table's *current* row from inside
+an UPDATE/DELETE policy, not just INSERT's `WITH CHECK`.

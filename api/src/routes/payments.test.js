@@ -85,25 +85,16 @@ test("payfast_webhook scoped to a DIFFERENT payment id cannot update this one", 
   assert.equal(result.rows.length, 0, "RLS must block writes scoped to a different payment id");
 });
 
-test("payfast_webhook scoped to THIS payment id can update it, and activate its listing", async () => {
+test("payfast_webhook scoped to THIS payment id can update it, and (once explicitly scoped to the listing too) activate it", async () => {
   const result = await withPaymentWebhookAccess(paymentId, async (client) => {
     const updated = await client.query(
       "UPDATE payments SET status = 'complete' WHERE id = $1 RETURNING status",
       [paymentId]
     );
-    const diag = await client.query(
-      `SELECT current_setting('app.current_user_role', true) AS role,
-              current_setting('app.current_payment_id', true) AS payment_id_setting,
-              $1::text AS expected_payment_id,
-              (SELECT listing_id::text FROM payments WHERE id::text = current_setting('app.current_payment_id', true)) AS subquery_listing_id,
-              $2::text AS expected_listing_id`,
-      [paymentId, draftListingId]
-    );
-    process.stderr.write("DIAG: " + JSON.stringify(diag.rows[0]) + "\n");
-    const policies = await client.query(
-      "SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'listings' AND policyname LIKE 'payfast%'"
-    );
-    process.stderr.write("DIAG policies: " + JSON.stringify(policies.rows) + "\n");
+    // Mirrors what the route does: it already knows listing_id from the
+    // payments row it just read, and sets this explicitly rather than
+    // relying on a subquery inside the RLS policy -- see db/migrations/0015.
+    await client.query("SELECT set_config('app.current_activatable_listing_id', $1, true)", [draftListingId]);
     const listing = await client.query(
       "UPDATE listings SET status = 'active' WHERE id = $1 AND status = 'draft' RETURNING status",
       [draftListingId]
@@ -112,13 +103,14 @@ test("payfast_webhook scoped to THIS payment id can update it, and activate its 
   });
   assert.equal(result.updated.rows.length, 1);
   assert.equal(result.updated.rows[0].status, "complete");
-  assert.equal(result.listing.rows.length, 1, "payfast_webhook must be able to activate the listing this payment belongs to");
+  assert.equal(result.listing.rows.length, 1, "payfast_webhook must be able to activate the listing it was explicitly scoped to");
   assert.equal(result.listing.rows[0].status, "active");
 });
 
-test("payfast_webhook cannot activate an unrelated listing even when scoped to a real payment", async () => {
-  const result = await withPaymentWebhookAccess(paymentId, (client) =>
-    client.query("UPDATE listings SET status = 'active' WHERE id = $1 RETURNING status", [otherListingId])
-  );
-  assert.equal(result.rows.length, 0, "RLS must scope listing activation to the payment's own listing_id");
+test("payfast_webhook cannot activate a listing it wasn't explicitly scoped to, even mid-session", async () => {
+  const result = await withPaymentWebhookAccess(paymentId, async (client) => {
+    await client.query("SELECT set_config('app.current_activatable_listing_id', $1, true)", [draftListingId]);
+    return client.query("UPDATE listings SET status = 'active' WHERE id = $1 RETURNING status", [otherListingId]);
+  });
+  assert.equal(result.rows.length, 0, "RLS must scope listing activation to the exact id set, not any listing");
 });
