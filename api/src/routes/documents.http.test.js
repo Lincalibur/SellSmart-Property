@@ -65,7 +65,7 @@ test("buyer uploads a document: upload-url -> PUT to S3 -> confirm -> list with 
 
   const fileContents = "this is a fake ID document";
   const putRes = await fetch(uploadUrl, { method: "PUT", body: fileContents });
-  assert.equal(putRes.status, 200);
+  assert.equal(putRes.status, 200, `PUT to presigned URL failed: ${await putRes.text()} (url: ${uploadUrl})`);
 
   const confirmRes = await fetch(`${baseUrl}/api/otps/${otpId}/documents/buyer_id/confirm`, { method: "POST" });
   assert.equal(confirmRes.status, 201);
