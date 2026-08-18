@@ -62,7 +62,7 @@ jobs:
       - name: Create non-superuser app role
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d sellsmart_test -c \
-            "CREATE ROLE app_test LOGIN PASSWORD 'app_test'; GRANT ALL ON SCHEMA public TO app_test;"
+            "CREATE ROLE app_test LOGIN PASSWORD 'app_test'; ALTER DATABASE sellsmart_test OWNER TO app_test; GRANT ALL ON SCHEMA public TO app_test;"
 
       - run: node scripts/migrate.js
       - run: npm test
