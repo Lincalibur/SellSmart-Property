@@ -78,15 +78,19 @@ checkout), and `0014`'s policy pins to that exact row -- the same
 "id is the capability, never `USING (true)`" pattern as `otp_bearer`.
 `0015` extends that same scoped capability across tables: once verified
 for one payment, it can also flip *that payment's own* `listing_id` from
-draft to active. This one uses a second, explicit session var
+draft to active, via a second explicit session var
 (`app.current_activatable_listing_id`, set once the API already knows the
-value from the payments row it just read) rather than a subquery inside
-the policy pointing back at `payments` -- a cross-table subquery in an
-UPDATE's `USING` clause between two FORCE RLS tables that each reference
-the other consistently matched zero rows in testing despite every
-component of the boolean logic checking out individually when queried
-directly. Not worth chasing further given the direct id-in-session-var
-version (the same pattern `otp_bearer`/`payfast_webhook` already use
-everywhere else) sidesteps it entirely -- worth remembering if a future
-table's RLS needs to reference another table's *current* row from inside
-an UPDATE/DELETE policy, not just INSERT's `WITH CHECK`.
+value from the payments row it just read).
+
+**Real gotcha found here, confirmed with `EXPLAIN` in CI:** an UPDATE (or
+DELETE) policy alone is not sufficient -- Postgres also requires the row to
+satisfy the table's *SELECT*-applicable policies, the same way `RETURNING`
+does (see the gotcha above). `0015` originally added only an UPDATE policy
+for `payfast_webhook` on `listings`; it consistently matched zero rows even
+though the UPDATE policy's own condition checked out correctly in
+isolation, because no SELECT policy granted that role visibility of a
+still-draft listing (`public_reads_active_listings` only covers `active`
+ones). The fix was adding a matching `payfast_webhook_reads_activatable_listing`
+SELECT policy alongside the UPDATE one. Apply the same check to any future
+UPDATE/DELETE-only policy on a table: does *some* SELECT policy also cover
+that role for the rows it needs to target?
