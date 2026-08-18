@@ -5,6 +5,13 @@ const { Pool } = pg;
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: true },
+  // Without this, a connectivity problem hangs indefinitely instead of
+  // failing fast -- painful to diagnose in CI, where a hung job just times
+  // out with no useful log output.
+  connectionTimeoutMillis: 5000,
+  // Same reasoning, but for a query that's actually running -- e.g. stuck
+  // behind a lock from another transaction that never committed/rolled back.
+  statement_timeout: 10000,
 });
 
 // Runs `fn` inside a transaction with the signed-in user's ID and role set
