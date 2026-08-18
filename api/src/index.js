@@ -17,6 +17,14 @@ app.use("/api/listings", listingsRouter);
 app.use("/api", enquiriesRouter);
 app.use("/api", viewingsRouter);
 
+// Catches anything asyncRoute forwarded via next(err) -- without this,
+// Express 4's default error handler still responds, but with no logging
+// and (outside NODE_ENV=production) a stack-trace leak.
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: "Something went wrong." });
+});
+
 const port = process.env.PORT ?? 3000;
 
 if (process.env.NODE_ENV !== "test") {

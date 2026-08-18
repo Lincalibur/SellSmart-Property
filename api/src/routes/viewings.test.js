@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { withUserContext, pool } from "../db/pool.js";
@@ -7,7 +8,9 @@ process.env.NODE_ENV = "test";
 const seller = { id: "view-seller-1", groups: ["seller"] };
 const otherSeller = { id: "view-seller-2", groups: ["seller"] };
 const listingId = "77777777-7777-7777-7777-777777777777";
-let viewingId;
+// Generated here rather than read back via RETURNING -- see the comment in
+// routes/enquiries.js on why an anonymous INSERT can't use RETURNING.
+const viewingId = randomUUID();
 
 before(async () => {
   await withUserContext(seller, (client) =>
@@ -17,23 +20,11 @@ before(async () => {
       [listingId, seller.id]
     )
   );
-  const listingCheck = await pool.query(
-    "SELECT id, seller_id, status FROM listings WHERE id = $1",
-    [listingId]
+  await pool.query(
+    `INSERT INTO viewing_requests (id, listing_id, seller_id, name, email, requested_date, requested_time)
+     VALUES ($1, $2, $3, 'Buyer One', 'buyer@example.com', '2026-09-01', '10:00')`,
+    [viewingId, listingId, seller.id]
   );
-  process.stderr.write("DIAG listing visible to anon: " + JSON.stringify(listingCheck.rows) + "\n");
-  const policies = await pool.query(
-    "SELECT policyname, cmd, with_check FROM pg_policies WHERE tablename = 'viewing_requests'"
-  );
-  process.stderr.write("DIAG policies: " + JSON.stringify(policies.rows) + "\n");
-
-  const inserted = await pool.query(
-    `INSERT INTO viewing_requests (listing_id, seller_id, name, email, requested_date, requested_time)
-     VALUES ($1, $2, 'Buyer One', 'buyer@example.com', '2026-09-01', '10:00')
-     RETURNING id`,
-    [listingId, seller.id]
-  );
-  viewingId = inserted.rows[0].id;
 });
 
 after(async () => {

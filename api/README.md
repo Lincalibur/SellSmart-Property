@@ -28,7 +28,17 @@ built on the same pattern. `src/routes/enquiries.js` and
 variant: an unauthenticated POST that looks the owning seller up
 server-side rather than trusting it from the request body, backed by a
 `WITH CHECK` in `db/migrations/0008_enquiries_viewings_rls.sql` that
-verifies it anyway.
+verifies it anyway. Their POST handlers also don't use `RETURNING` — see
+the gotcha noted in `db/README.md` — an anonymous INSERT can't read its own
+row back that way, since RETURNING is filtered through the table's SELECT
+policies and there isn't one that grants an anonymous request visibility.
+
+Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
+catch a rejected promise from an async handler on its own — without the
+wrapper, an error (like the RETURNING one above, before it was fixed) means
+no response is ever sent and the client just hangs instead of getting the
+500 from `index.js`'s error-handling middleware. Wrap every new route the
+same way.
 
 ## Local development
 

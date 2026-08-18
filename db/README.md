@@ -26,3 +26,16 @@ instead cross-checks the submitted `seller_id` against the listing's actual
 `seller_id` (and that the listing is `active`) via a `WITH CHECK` subquery
 — the API route looks the seller up server-side rather than trusting the
 request body, but this is the real backstop if that ever regresses.
+
+**Gotcha found building this:** an `INSERT ... RETURNING` is filtered
+through the table's *SELECT* policies too, not just the INSERT policy's
+`WITH CHECK`. An anonymous request has no SELECT policy granting it
+visibility into enquiries/viewing_requests (only the owning seller or an
+admin can read them), so `RETURNING` on these anonymous inserts fails with
+"new row violates row-level security policy" even though the INSERT itself
+is allowed. `api/src/routes/enquiries.js` and `viewings.js` work around
+this by generating the id/timestamp in the API and building the response
+from known values instead of reading the row back. Any future anonymous
+INSERT route needs the same treatment; an authenticated INSERT is fine with
+`RETURNING` as long as the actor has SELECT visibility of their own row
+(e.g. sellers reading listings/viewing_requests they own).
