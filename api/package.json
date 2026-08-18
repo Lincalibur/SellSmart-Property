@@ -1,0 +1,16 @@
+{
+  "name": "sellsmart-property-api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test src/"
+  },
+  "dependencies": {
+    "aws-jwt-verify": "^4.0.1",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
