@@ -108,7 +108,7 @@ test("a second Connect payload completing the seller too records that, without d
   assert.equal(otp.rows[0].signed_by_seller, true);
 
   const history = await withUserContext(seller, (client) =>
-    client.query("SELECT event FROM otp_history WHERE otp_id = $1 ORDER BY created_at")
+    client.query("SELECT event FROM otp_history WHERE otp_id = $1 ORDER BY created_at", [otpId])
   );
   assert.deepEqual(
     history.rows.map((r) => r.event),
