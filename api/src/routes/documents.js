@@ -5,6 +5,7 @@ import { s3, DOCUMENTS_BUCKET } from "../lib/s3.js";
 import { withOtpAccess, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
+import { notifyDocumentUploaded } from "../lib/notify.js";
 
 export const documentsRouter = express.Router();
 
@@ -71,17 +72,34 @@ async function handleConfirm(req, res, runInContext, uploadedBy) {
     return res.status(400).json({ error: "No upload found at that key yet -- upload to the presigned URL first." });
   }
 
-  const result = await runInContext((client) =>
-    client.query(
+  const result = await runInContext(async (client) => {
+    const otp = await client.query("SELECT seller_id, buyer_email FROM otps WHERE id = $1", [req.params.id]);
+    if (otp.rows.length === 0) return null;
+
+    const inserted = await client.query(
       `INSERT INTO documents (otp_id, seller_id, doc_type, uploaded_by, s3_key)
-       VALUES ($1, (SELECT seller_id FROM otps WHERE id = $1), $2, $3, $4)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (otp_id, doc_type)
        DO UPDATE SET uploaded_by = EXCLUDED.uploaded_by, s3_key = EXCLUDED.s3_key, uploaded_at = now()
        RETURNING doc_type, uploaded_by, uploaded_at`,
-      [req.params.id, docType, uploadedBy, key]
-    )
-  );
-  res.status(201).json(toDocumentJson(result.rows[0]));
+      [req.params.id, otp.rows[0].seller_id, docType, uploadedBy, key]
+    );
+    return { document: inserted.rows[0], sellerId: otp.rows[0].seller_id, buyerEmail: otp.rows[0].buyer_email };
+  });
+
+  if (!result) {
+    return res.status(404).json({ error: "Offer not found." });
+  }
+
+  // Not awaited -- see the comment in enquiries.js's POST route.
+  notifyDocumentUploaded({
+    sellerId: result.sellerId,
+    buyerEmail: result.buyerEmail,
+    uploadedBy,
+    docType,
+  });
+
+  res.status(201).json(toDocumentJson(result.document));
 }
 
 async function handleList(req, res, runInContext) {

@@ -3,12 +3,15 @@ import { withDocusignWebhookAccess, withOtpAccess, withUserContext } from "../db
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
 import { createEnvelope, createRecipientView, verifyConnectSignature } from "../lib/docusign.js";
+import { getUser } from "../lib/cognito.js";
+import { notifyOtpSigned } from "../lib/notify.js";
 
 export const docusignRouter = express.Router();
 
 const OTP_ROW_FIELDS = `
-  id, buyer_name, buyer_id_number, buyer_contact, offer_price, deposit,
-  occupation_date, suspensive_conditions, special_conditions, status, envelope_id
+  id, buyer_name, buyer_id_number, buyer_contact, buyer_email, offer_price,
+  deposit, occupation_date, suspensive_conditions, special_conditions,
+  status, envelope_id
 `;
 
 function toOtpRow(row) {
@@ -30,16 +33,16 @@ function toOtpRow(row) {
 // they're the one moving the deal to signing) -- the buyer's own signing
 // access comes from the /otps/:id/signing-url route below, same
 // otp_bearer capability as everywhere else in this table.
+//
+// Neither party's email/name is trusted from the request body: the
+// buyer's (issue #13's otps.buyer_email, db/migrations/0021) was captured
+// at OTP submission time, and the seller's comes from Cognito (the actual
+// signed-in user), not whatever the client claims.
 docusignRouter.post(
   "/otps/mine/:id/envelope",
   requireAuth,
   requireRole("seller"),
   asyncRoute(async (req, res) => {
-    const { buyerEmail, sellerEmail, sellerName } = req.body;
-    if (!buyerEmail || !sellerEmail || !sellerName) {
-      return res.status(400).json({ error: "buyerEmail, sellerEmail and sellerName are required." });
-    }
-
     const result = await withUserContext(req.user, async (client) => {
       const current = await client.query(`SELECT ${OTP_ROW_FIELDS} FROM otps WHERE id = $1`, [req.params.id]);
       if (current.rows.length === 0) return { notFound: true };
@@ -52,7 +55,16 @@ docusignRouter.post(
     if (result.notAccepted) return res.status(409).json({ error: "The offer must be accepted before signing." });
     if (result.alreadyCreated) return res.status(409).json({ error: "An envelope already exists for this offer." });
 
-    const envelopeId = await createEnvelope(toOtpRow(result.otp), { buyerEmail, sellerEmail, sellerName });
+    const seller = await getUser(req.user.id);
+    if (!seller?.email) {
+      return res.status(409).json({ error: "Your account has no email on file." });
+    }
+
+    const envelopeId = await createEnvelope(toOtpRow(result.otp), {
+      buyerEmail: result.otp.buyer_email,
+      sellerEmail: seller.email,
+      sellerName: seller.name ?? seller.email,
+    });
 
     await withUserContext(req.user, (client) =>
       client.query("UPDATE otps SET envelope_id = $2 WHERE id = $1", [req.params.id, envelopeId])
@@ -61,6 +73,9 @@ docusignRouter.post(
   })
 );
 
+// name/email must match what createEnvelope registered the recipient
+// with -- resolved the same server-side way for both parties (DB for the
+// buyer, Cognito for the seller) rather than trusted from a query param.
 async function handleSigningUrl(req, res, runInContext, clientUserId, name, email) {
   const { returnUrl } = req.query;
   if (!returnUrl) {
@@ -81,18 +96,24 @@ async function handleSigningUrl(req, res, runInContext, clientUserId, name, emai
   res.json({ signingUrl });
 }
 
-// Buyer side -- name/email come from the request for now (buyers don't
-// have accounts yet -- OTPBuilder only ever collected a contact number,
-// not an email; MVP-SPEC.md's "Buyer Dashboard" future phase is presumably
-// where that gets collected properly).
+// Buyer side -- otp_bearer capability, same as everywhere else in this table.
 docusignRouter.get(
   "/otps/:id/signing-url",
   asyncRoute(async (req, res) => {
-    const { name, email } = req.query;
-    if (!name || !email) {
-      return res.status(400).json({ error: "name and email query params are required." });
+    const otp = await withOtpAccess(req.params.id, (client) =>
+      client.query("SELECT buyer_name, buyer_email FROM otps WHERE id = $1", [req.params.id])
+    );
+    if (otp.rows.length === 0) {
+      return res.status(404).json({ error: "Offer not found." });
     }
-    return handleSigningUrl(req, res, (fn) => withOtpAccess(req.params.id, fn), "buyer", name, email);
+    return handleSigningUrl(
+      req,
+      res,
+      (fn) => withOtpAccess(req.params.id, fn),
+      "buyer",
+      otp.rows[0].buyer_name,
+      otp.rows[0].buyer_email
+    );
   })
 );
 
@@ -102,11 +123,18 @@ docusignRouter.get(
   requireAuth,
   requireRole("seller"),
   asyncRoute(async (req, res) => {
-    const { name, email } = req.query;
-    if (!name || !email) {
-      return res.status(400).json({ error: "name and email query params are required." });
+    const seller = await getUser(req.user.id);
+    if (!seller?.email) {
+      return res.status(409).json({ error: "Your account has no email on file." });
     }
-    return handleSigningUrl(req, res, (fn) => withUserContext(req.user, fn), "seller", name, email);
+    return handleSigningUrl(
+      req,
+      res,
+      (fn) => withUserContext(req.user, fn),
+      "seller",
+      seller.name ?? seller.email,
+      seller.email
+    );
   })
 );
 
@@ -142,11 +170,13 @@ docusignWebhookRouter.post(
     }
 
     const result = await withDocusignWebhookAccess(envelopeId, async (client) => {
-      const current = await client.query("SELECT id, seller_id, signed_by_buyer, signed_by_seller FROM otps WHERE envelope_id = $1", [
-        envelopeId,
-      ]);
+      const current = await client.query(
+        "SELECT id, seller_id, buyer_email, signed_by_buyer, signed_by_seller FROM otps WHERE envelope_id = $1",
+        [envelopeId]
+      );
       if (current.rows.length === 0) return { notFound: true };
       const otp = current.rows[0];
+      const signedParties = [];
 
       for (const signer of signers) {
         if (signer.status !== "completed") continue;
@@ -160,12 +190,20 @@ docusignWebhookRouter.post(
           `INSERT INTO otp_history (otp_id, seller_id, event, by_party) VALUES ($1, $2, $3, $4)`,
           [otp.id, otp.seller_id, `Signed by ${party}`, party]
         );
+        signedParties.push(party);
       }
-      return { ok: true };
+      return { ok: true, sellerId: otp.seller_id, buyerEmail: otp.buyer_email, signedParties };
     });
 
     if (result.notFound) {
       return res.status(404).json({ error: "Unknown envelope." });
+    }
+    // Not awaited -- see the comment in enquiries.js's POST route. Fine
+    // to fire all of them without waiting; PayFast/DocuSign don't need
+    // the response any faster than usual, but there's no reason to make
+    // them wait on an email send either.
+    for (const signedBy of result.signedParties) {
+      notifyOtpSigned({ sellerId: result.sellerId, buyerEmail: result.buyerEmail, signedBy });
     }
     res.status(200).send("OK");
   })

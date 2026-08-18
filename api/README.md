@@ -118,6 +118,31 @@ rather than repeating both on every route — the only route file that does
 this, since every earlier one mixed public/seller/buyer routes in the same
 file and needed per-route control.
 
+`src/lib/notify.js` (issue #13) is the transactional email layer —
+enquiries, viewing requests, new offers, offer responses, document
+uploads, and OTP signing all trigger one of its functions. Every one of
+them is a **best-effort side effect that must never break the write that
+triggered it**: `send()`/`sendToSeller()` catch and log their own errors
+rather than let them propagate, and every call site in a route is
+deliberately *not* awaited before the response is sent (the enquiry/
+offer/etc. is already saved by that point; there's no reason to make the
+caller wait on an email, and `notify.js` never rejects anyway, so nothing
+is lost by not awaiting it). Sellers don't have a stored email in
+Postgres — Cognito is the user store — so seller-facing notifications
+resolve it via `lib/cognito.js`'s `getUser`, the same untestable-for-real
+call the admin routes use. Buyer-facing ones use `otps.buyer_email`
+(`db/migrations/0021`, added by this epic) or the email already stored on
+`enquiries`/`viewing_requests`.
+
+While wiring `notifyOtpSigned` into the DocuSign webhook, found and
+removed two **dead but still-reachable routes**: `POST /otps/:id/sign` and
+`POST /otps/mine/:id/sign` in `src/routes/otps.js` were the original
+simulated-signing endpoints from issue #7, superseded by real DocuSign
+envelopes in issue #10 -- but issue #10 added the new routes *alongside*
+the old ones instead of removing them. Left in place, either one would
+have let a party mark `signed_by_buyer`/`signed_by_seller` true with a
+plain POST, bypassing DocuSign entirely.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -203,3 +228,16 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   its routes (Cognito-backed or not) get an HTTP "requires auth" check
   (`admin.http.test.js`), same reasoning as `requireRole`'s 403 branch
   never being reachable without a real signed-in role either.
+- `src/lib/notify.test.js` (issue #13) splits along the same line
+  `notify.js` itself does: its buyer-facing paths (an email address it
+  already has) are tested for real through LocalStack's SES emulation,
+  same as `email.test.js`. Its seller-facing paths call `lib/cognito.js`'s
+  `getUser`, which can't succeed in this environment -- what's verified
+  there instead is the actual guarantee that matters, that a failed/
+  impossible Cognito lookup never makes these functions throw (every one
+  is a best-effort side effect of an already-successful write). Because
+  each of those calls is a real rejected round trip to Cognito with no
+  local emulation available, that test runs them with `Promise.all`
+  rather than sequential awaits, to stay well inside node:test's
+  per-test timeout — see `lib/cognito.js`'s `NodeHttpHandler` timeout
+  comment for why a single one fails fast rather than hanging.

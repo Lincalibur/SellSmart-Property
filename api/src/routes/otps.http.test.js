@@ -42,7 +42,7 @@ test("full OTP flow: submit, then buyer-side transitions before acceptance", asy
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100" },
+      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100", email: "buyer@example.example" },
       offerPrice: 950000,
       deposit: 95000,
       occupationDate: "2026-09-01",
@@ -76,7 +76,7 @@ test("POST /api/listings/:id/otps 404s for an unknown listing", async () => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      buyer: { name: "Buyer", idNumber: "1", contact: "1" },
+      buyer: { name: "Buyer", idNumber: "1", contact: "1", email: "x@example.example" },
       offerPrice: 1,
       deposit: 1,
       occupationDate: "2026-09-01",

@@ -137,3 +137,15 @@ route-layer work over RLS that was already correct. Users aren't a table
 in this database at all -- Cognito is the store -- so "manage users" is
 the one part of this epic with no RLS angle whatsoever;
 `api/src/lib/cognito.js` calls Cognito's own Admin* APIs directly.
+
+`0021_otps_buyer_email.sql` (issue #13, notifications) is a small but
+overdue fix: `otps` never stored a buyer email, because `buyer_contact`
+(issue #7) is a phone number, and issue #10's DocuSign envelope route
+worked around the gap by requiring `buyerEmail` in its own request body
+instead. "Update on your offer" (an email to the buyer) needs a real
+column to read from, so this adds one and removes that workaround --
+see `api/src/routes/docusign.js`'s updated envelope/signing-url routes,
+which now resolve both parties' email server-side (this column for the
+buyer, `lib/cognito.js` for the seller) instead of trusting either from
+a request. No RLS change needed: it's just a new column on a table whose
+existing policies already cover writing it.

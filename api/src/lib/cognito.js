@@ -8,6 +8,7 @@ import {
   AdminEnableUserCommand,
   AdminDisableUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 // COGNITO_ENDPOINT would point this at LocalStack the same way
 // lib/s3.js/lib/email.js do, but unlike S3/SES, LocalStack's cognito-idp
@@ -19,9 +20,19 @@ import {
 // Admin* API, verified once a real AWS account exists. Unset in
 // production, where the SDK talks to real Cognito using the ECS task's
 // IAM role.
+//
+// Short timeouts matter here specifically (unlike the other lib/*.js
+// clients): issue #13's notify.js calls getUser() as a best-effort side
+// effect of routes like "enquiry received," with no LocalStack/real pool
+// to answer in CI or in a dev environment with no AWS account. Without
+// this, a request with fake credentials and no real endpoint to reach
+// would hang on the SDK's default (much longer) socket timeout instead of
+// failing fast into notify.js's catch.
 export const cognito = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION ?? "af-south-1",
   endpoint: process.env.COGNITO_ENDPOINT || undefined,
+  requestHandler: new NodeHttpHandler({ connectionTimeout: 3000, requestTimeout: 5000 }),
+  maxAttempts: 1,
 });
 
 export const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
@@ -36,6 +47,7 @@ function toUserJson(user) {
   return {
     username: user.Username,
     email: attrs.email,
+    name: attrs.name,
     enabled: user.Enabled,
     status: user.UserStatus,
     createdAt: user.UserCreateDate,

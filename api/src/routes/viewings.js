@@ -3,6 +3,7 @@ import express from "express";
 import { pool, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
+import { notifyNewViewingRequest } from "../lib/notify.js";
 
 export const viewingsRouter = express.Router();
 
@@ -25,7 +26,7 @@ viewingsRouter.post(
     }
 
     const listing = await pool.query(
-      "SELECT seller_id FROM listings WHERE id = $1 AND status = 'active'",
+      "SELECT seller_id, title FROM listings WHERE id = $1 AND status = 'active'",
       [req.params.listingId]
     );
     if (listing.rows.length === 0) {
@@ -40,6 +41,16 @@ viewingsRouter.post(
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
       [id, req.params.listingId, listing.rows[0].seller_id, name, email, phone ?? "", date, time, createdAt]
     );
+
+    // Not awaited -- see the comment in enquiries.js's POST route.
+    notifyNewViewingRequest({
+      sellerId: listing.rows[0].seller_id,
+      listingTitle: listing.rows[0].title,
+      name,
+      date,
+      time,
+    });
+
     res.status(201).json({
       id,
       listingId: req.params.listingId,

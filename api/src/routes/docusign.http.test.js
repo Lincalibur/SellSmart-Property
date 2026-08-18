@@ -33,9 +33,9 @@ before(async () => {
   );
   await withOtpAccess(otpId, (client) =>
     client.query(
-      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact,
+      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
                           offer_price, deposit, occupation_date, status, envelope_id)
-       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 1000000, 100000, '2026-09-01', 'accepted', $4)`,
+       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 'buyer@example.example', 1000000, 100000, '2026-09-01', 'accepted', $4)`,
       [otpId, listingId, seller.id, envelopeId]
     )
   );
@@ -138,17 +138,22 @@ test("POST /api/otps/mine/:id/envelope requires auth", async () => {
   const res = await fetch(`${baseUrl}/api/otps/mine/${otpId}/envelope`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ buyerEmail: "buyer@example.com", sellerEmail: "seller@example.com", sellerName: "Seller" }),
+    body: JSON.stringify({}),
   });
   assert.equal(res.status, 401);
 });
 
 test("GET /api/otps/mine/:id/signing-url requires auth", async () => {
-  const res = await fetch(`${baseUrl}/api/otps/mine/${otpId}/signing-url?returnUrl=https://example.com&name=Seller&email=seller@example.com`);
+  const res = await fetch(`${baseUrl}/api/otps/mine/${otpId}/signing-url?returnUrl=https://example.com`);
   assert.equal(res.status, 401);
 });
 
-test("GET /api/otps/:id/signing-url requires name/email query params", async () => {
-  const res = await fetch(`${baseUrl}/api/otps/${otpId}/signing-url?returnUrl=https://example.com`);
+// name/email are resolved server-side now (buyer_email on the otp row,
+// Cognito for the seller) rather than trusted from query params -- this
+// just confirms the one thing still validated before any DocuSign call:
+// returnUrl. Beyond this, createRecipientView needs a real DocuSign
+// account (no AWS/DocuSign account of any kind exists yet).
+test("GET /api/otps/:id/signing-url requires returnUrl", async () => {
+  const res = await fetch(`${baseUrl}/api/otps/${otpId}/signing-url`);
   assert.equal(res.status, 400);
 });

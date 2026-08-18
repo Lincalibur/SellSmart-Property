@@ -20,9 +20,9 @@ const otherOtpId = randomUUID();
 async function insertOtp(id) {
   return withOtpAccess(id, (client) =>
     client.query(
-      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact,
+      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
                           offer_price, deposit, occupation_date)
-       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 1000000, 100000, '2026-09-01')`,
+       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 'buyer@example.example', 1000000, 100000, '2026-09-01')`,
       [id, listingId, seller.id]
     )
   );
@@ -51,9 +51,9 @@ test("otp_bearer insert with a mismatched seller_id is rejected", async () => {
   await assert.rejects(
     withOtpAccess(otherOtpId, (client) =>
       client.query(
-        `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact,
+        `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
                             offer_price, deposit, occupation_date)
-         VALUES ($1, $2, 'someone-else', 'x', 'x', 'x', 1000000, 100000, '2026-09-01')`,
+         VALUES ($1, $2, 'someone-else', 'x', 'x', 'x', 'x@example.example', 1000000, 100000, '2026-09-01')`,
         [otherOtpId, listingId]
       )
     )
