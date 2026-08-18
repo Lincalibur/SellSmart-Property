@@ -10,6 +10,14 @@ export const s3 = new S3Client({
   region: process.env.AWS_REGION ?? "af-south-1",
   endpoint: process.env.S3_ENDPOINT || undefined,
   forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+  // The SDK's default ("WHEN_SUPPORTED") bakes an x-amz-checksum-crc32
+  // requirement into every presigned PutObject URL. That's fine for a
+  // request the SDK itself sends, but the whole point of a presigned
+  // upload URL (routes/documents.js) is that a browser PUTs to it
+  // directly, with no SDK involved to compute or attach that header --
+  // the upload then fails checksum validation. PutObject doesn't require
+  // a checksum, so this only adds one when an operation actually needs it.
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 // Matches terraform/modules/storage's aws_s3_bucket.documents
