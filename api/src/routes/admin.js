@@ -17,11 +17,21 @@ adminRouter.use(requireAuth, requireRole("admin"));
 // already there, not new access control. User management is the one
 // genuinely new capability, since Cognito is the user store, not Postgres
 // -- see lib/cognito.js.
+//
+// Mounted at "/api/admin" in index.js, not "/api" -- adminRouter.use()
+// above has no path filter, so it applies to every request that reaches
+// this router at all. Mounting at the shared "/api" prefix like every
+// other router (each defining its own full "/whatever" paths) would mean
+// this middleware intercepts *any* unmatched "/api/*" request that falls
+// through to it, turning what should be a 404 into a 401 -- found via a
+// real test failure (a since-removed otps.js route started 401ing
+// instead of 404ing once admin.js existed). Every route below is
+// relative to that mount point now, not prefixed with "/admin" itself.
 
 // -- Users --------------------------------------------------------------
 
 adminRouter.get(
-  "/admin/users",
+  "/users",
   asyncRoute(async (req, res) => {
     const { limit, nextToken } = req.query;
     res.json(await listUsers({ limit: limit ? Number(limit) : undefined, paginationToken: nextToken }));
@@ -29,7 +39,7 @@ adminRouter.get(
 );
 
 adminRouter.get(
-  "/admin/users/:username",
+  "/users/:username",
   asyncRoute(async (req, res) => {
     try {
       res.json(await getUser(req.params.username));
@@ -43,7 +53,7 @@ adminRouter.get(
 );
 
 adminRouter.post(
-  "/admin/users/:username/groups/:groupName",
+  "/users/:username/groups/:groupName",
   asyncRoute(async (req, res) => {
     if (!ROLE_GROUPS.includes(req.params.groupName)) {
       return res.status(400).json({ error: `groupName must be one of: ${ROLE_GROUPS.join(", ")}` });
@@ -54,7 +64,7 @@ adminRouter.post(
 );
 
 adminRouter.delete(
-  "/admin/users/:username/groups/:groupName",
+  "/users/:username/groups/:groupName",
   asyncRoute(async (req, res) => {
     await removeUserFromGroup(req.params.username, req.params.groupName);
     res.status(204).end();
@@ -62,7 +72,7 @@ adminRouter.delete(
 );
 
 adminRouter.post(
-  "/admin/users/:username/enable",
+  "/users/:username/enable",
   asyncRoute(async (req, res) => {
     await setUserEnabled(req.params.username, true);
     res.status(204).end();
@@ -70,7 +80,7 @@ adminRouter.post(
 );
 
 adminRouter.post(
-  "/admin/users/:username/disable",
+  "/users/:username/disable",
   asyncRoute(async (req, res) => {
     await setUserEnabled(req.params.username, false);
     res.status(204).end();
@@ -85,7 +95,7 @@ const LISTING_FIELDS = `
 `;
 
 adminRouter.get(
-  "/admin/listings",
+  "/listings",
   asyncRoute(async (req, res) => {
     const { status } = req.query;
     const result = await withUserContext(req.user, (client) =>
@@ -103,7 +113,7 @@ const LISTING_UPDATABLE_FIELDS = ["status"];
 // own edit flow (listings.js), which is why this is a separate route
 // rather than reusing that one with a role check bolted on.
 adminRouter.patch(
-  "/admin/listings/:id",
+  "/listings/:id",
   asyncRoute(async (req, res) => {
     const patch = Object.fromEntries(
       Object.entries(req.body).filter(([key]) => LISTING_UPDATABLE_FIELDS.includes(key))
@@ -127,7 +137,7 @@ adminRouter.patch(
 );
 
 adminRouter.delete(
-  "/admin/listings/:id",
+  "/listings/:id",
   asyncRoute(async (req, res) => {
     const result = await withUserContext(req.user, (client) =>
       client.query("DELETE FROM listings WHERE id = $1 RETURNING id", [req.params.id])
@@ -147,7 +157,7 @@ const PAYMENT_FIELDS = `
 `;
 
 adminRouter.get(
-  "/admin/payments",
+  "/payments",
   asyncRoute(async (req, res) => {
     const { status } = req.query;
     const result = await withUserContext(req.user, (client) =>
@@ -166,7 +176,7 @@ const PAYMENT_STATUSES = ["pending", "complete", "failed", "cancelled"];
 // PayFast-signature-verified webhook path in payments.js, never the other
 // way around.
 adminRouter.patch(
-  "/admin/payments/:id",
+  "/payments/:id",
   asyncRoute(async (req, res) => {
     if (!PAYMENT_STATUSES.includes(req.body.status)) {
       return res.status(400).json({ error: `status must be one of: ${PAYMENT_STATUSES.join(", ")}` });
@@ -187,7 +197,7 @@ adminRouter.patch(
 // -- Documents (compliance/support oversight) ------------------------------
 
 adminRouter.get(
-  "/admin/otps/:id/documents",
+  "/otps/:id/documents",
   asyncRoute(async (req, res) => {
     const documents = await withUserContext(req.user, (client) =>
       client.query("SELECT doc_type, uploaded_by, uploaded_at, s3_key FROM documents WHERE otp_id = $1", [

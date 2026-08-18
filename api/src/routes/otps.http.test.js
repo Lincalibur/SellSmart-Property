@@ -58,17 +58,17 @@ test("full OTP flow: submit, then buyer-side transitions before acceptance", asy
   assert.equal(getRes.status, 200);
   assert.equal((await getRes.json()).offerPrice, 950000);
 
-  // Seller-side transitions (counter/accept/reject/sign) need requireAuth,
+  // Seller-side transitions (counter/accept/reject) need requireAuth,
   // which can't be exercised without a real Cognito pool -- proven at the
   // RLS layer instead, in otps.test.js. This confirms the buyer-facing
   // half of the request pipeline (routing, JSON parsing, history rows,
   // RETURNING) works end to end, including guarding against skipping
-  // straight to accept-counter/sign without a seller response first.
+  // straight to accept-counter without a seller response first.
   const acceptCounterOn404 = await fetch(`${baseUrl}/api/otps/${otpId}/accept-counter`, { method: "POST" });
   assert.equal(acceptCounterOn404.status, 400, "no counter-offer exists yet");
 
-  const signBeforeAccepted = await fetch(`${baseUrl}/api/otps/${otpId}/sign`, { method: "POST" });
-  assert.equal(signBeforeAccepted.status, 400, "can't sign before the offer is accepted");
+  // Signing itself now goes through DocuSign (routes/docusign.js, issue
+  // #10) -- see that file's own tests for its signing-url route.
 });
 
 test("POST /api/listings/:id/otps 404s for an unknown listing", async () => {
