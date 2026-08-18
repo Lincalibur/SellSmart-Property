@@ -104,7 +104,6 @@ test("PATCH /api/otps/mine/:id requires auth", async () => {
   assert.equal(res.status, 401);
 });
 
-test("POST /api/otps/mine/:id/sign requires auth", async () => {
-  const res = await fetch(`${baseUrl}/api/otps/mine/some-id/sign`, { method: "POST" });
-  assert.equal(res.status, 401);
-});
+// POST /otps/mine/:id/sign and /otps/:id/sign no longer exist -- signing
+// now goes through DocuSign (routes/docusign.js, issue #10). See that
+// file's own tests.
