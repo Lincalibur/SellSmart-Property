@@ -26,8 +26,16 @@ easy mistakes if this isn't written down somewhere.
 
 ## What happens automatically at boot
 
-A systemd service, `qa-deploy.service` (installed once, see below), runs
-`deploy/qa-refresh.sh` on every boot:
+**Currently disabled (2026-08-19) -- the QA stack is being run manually
+for now**, at the user's request. `qa-deploy.service` is installed but
+`systemctl disable`d, and `docker compose down` has been run (data volume
+preserved, nothing lost) -- the box currently has no containers running
+and nothing starts on its own when it's powered on. Re-enable with
+`sudo systemctl enable --now qa-deploy.service` when auto-refresh-on-boot
+is wanted again; until then, see "Manually forcing a refresh" below for
+how to bring it up by hand.
+
+The service, when enabled, runs `deploy/qa-refresh.sh` on every boot:
 
 1. `git fetch` + hard-reset the checkout to `origin/development` -- always
    converges to exactly what's on `development`, never silently drifts
@@ -38,8 +46,9 @@ A systemd service, `qa-deploy.service` (installed once, see below), runs
 3. `docker image prune -f` -- clears dangling image layers left behind by
    the rebuild, so repeated boots don't slowly fill the disk.
 
-So: **power the box on, wait about a minute, the QA environment is already
-up to date and running.** Nobody needs to SSH in for a routine refresh.
+So, once re-enabled: **power the box on, wait about a minute, the QA
+environment is already up to date and running.** Nobody needs to SSH in
+for a routine refresh.
 
 ## One-time setup (already done, documented for reference/reinstall)
 
@@ -83,29 +92,33 @@ Also one-time, and already done on `debianhomelab`:
 ```sh
 ssh lincalibur@192.168.3.17 "docker compose -f ~/sellsmart-property/docker-compose.yml ps"
 ssh lincalibur@192.168.3.17 "curl -sf http://localhost:3000/health"
-ssh lincalibur@192.168.3.17 "tailscale serve status"
 ```
 
-Or, from any device on the tailnet: open
-`https://debianhomelab.tail5d3700.ts.net` directly.
+Or, from any device on the LAN: open `http://192.168.3.17:8080` directly
+(external/Tailscale access is currently disabled -- see above).
 
 If `api`/`migrate` never come up healthy, check
 `docker compose logs migrate` first -- that's the service that actually
 applies `db/migrations/*.sql` and exits before `api` starts; a broken
 migration is the most likely reason `api` never becomes healthy.
 
-## Manually forcing a refresh
+## Starting it manually (current mode) / forcing a refresh
 
-Normally never needed (boot handles it), but if you want the latest
-`development` without rebooting the box:
+While auto-start-on-boot is disabled (see above), this is how the QA
+environment actually gets started:
 
 ```sh
 ssh lincalibur@192.168.3.17 "sudo systemctl start qa-deploy.service"
 ```
 
-This runs the exact same `deploy/qa-refresh.sh` the boot path uses --
-never run `git pull`/`docker compose up` by hand against this checkout,
-so there's only ever one code path that touches it.
+This runs the exact same `deploy/qa-refresh.sh` the boot path would use --
+fetches/resets to `origin/development`, rebuilds, brings the stack up,
+prunes dangling images -- just triggered by hand instead of automatically.
+Always use this rather than running `git pull`/`docker compose up` by hand
+against the checkout, so there's only ever one code path that touches it.
+
+To stop it again: `ssh lincalibur@192.168.3.17 "cd ~/sellsmart-property && sudo docker compose down"`
+(the data volume is preserved; add `-v` only if you actually want to wipe it).
 
 ## Rolling back a bad deploy
 
