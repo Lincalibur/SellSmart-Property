@@ -3,7 +3,11 @@
 Plain, ordered SQL files, run in filename order via `api/scripts/migrate.js`
 (no ORM/migration tool chosen yet — deliberately, since there's still no
 real AWS account/Aurora instance; revisit once that changes and repeatable
-up/down migrations are worth the extra tooling).
+up/down migrations are worth the extra tooling). `migrate.js` tracks what's
+already applied in a `schema_migrations` table it creates itself, so it's
+safe to run repeatedly against a database that persists across runs (e.g.
+the QA environment, `deploy/qa-refresh.sh`) — found necessary the first
+time this ran against a non-CI, non-throwaway Postgres.
 
 `0003_listings_rls.sql` is the reference pattern every future table's access
 control should follow: a policy per role, driven by the two session
