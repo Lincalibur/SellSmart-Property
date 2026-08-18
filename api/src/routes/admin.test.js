@@ -22,7 +22,7 @@ before(async () => {
   await withUserContext(seller, (client) =>
     client.query(
       `INSERT INTO listings (id, seller_id, title, type, location, price, status)
-       VALUES ($1, $2, 'Admin Test Listing', 'House', 'Cape Town', 1000000, 'draft')`,
+       VALUES ($1, $2, 'Admin Test Listing', 'House', 'Cape Town', 1000000, 'active')`,
       [listingId, seller.id]
     )
   );
