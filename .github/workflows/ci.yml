@@ -39,16 +39,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # Emulates S3 for issue #8 (document hub) -- same reasoning as the
+      # Emulates S3 (issue #8) and SES (issue #11) -- same reasoning as the
       # real Postgres above: the RLS/access-control layer is worth testing
       # for real, not mocking. Object Lock itself is a bucket-level default
       # set in terraform/modules/storage, not something the app configures
       # per request, so LocalStack's community S3 support (no Object Lock)
-      # is enough to exercise the actual upload/confirm/download code path.
+      # is enough to exercise the actual upload/confirm/download code path;
+      # same idea for SES -- community support covers SendEmailCommand and
+      # listing what was sent, which is all api/src/lib/email.js needs.
       localstack:
         image: localstack/localstack:3
         env:
-          SERVICES: s3
+          SERVICES: s3,sesv2
         ports:
           - 4566:4566
         options: >-
@@ -67,6 +69,8 @@ jobs:
       DATABASE_SSL: "false"
       S3_ENDPOINT: http://localhost:4566
       DOCUMENTS_BUCKET: sellsmart-property-documents-test
+      SES_ENDPOINT: http://localhost:4566
+      EMAIL_FROM: no-reply@sellsmartproperty.example
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_REGION: af-south-1

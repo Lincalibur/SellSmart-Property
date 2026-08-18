@@ -88,6 +88,23 @@ ITN webhook never hit this problem only because form-urlencoded's
 different content-type doesn't match `express.json()`'s filter — that was
 luck, not a pattern to rely on for a future JSON-body webhook).
 
+`src/routes/providers.js` (issue #11) is the first table with a genuinely
+unconditional `USING (true)` public SELECT policy
+(`db/migrations/0019_providers_rls.sql`) -- it's SellSmart's own curated
+business directory, not user-submitted or personal data, so there's no
+equivalent of the anonymous-read leak risk every other epic had to design
+around. Writes are `admin`-only, seeded via `db/migrations/0018_providers.sql`
+so the directory has real content immediately rather than an empty table.
+`src/routes/conveyancer.js`'s handoff route is a normal seller-authenticated
+write with no new RLS of its own (reuses `0010`'s `seller_updates_own_otps`
+unchanged) -- there's no webhook here, since a conveyancer's own updates
+are "manual/email-driven for now" per MVP-SPEC.md, so this epic is simpler
+than #9/#10's server-to-server callback shape. It does reuse `s3.js`'s
+presigned-GET pattern from `documents.js`, but with a 7-day TTL instead of
+5 minutes -- a human reads this email at their own pace, not a browser
+fetching it immediately. `src/lib/email.js` wraps SES the same way `s3.js`
+wraps S3.
+
 Every route is wrapped in `src/middleware/asyncRoute.js`. Express 4 doesn't
 catch a rejected promise from an async handler on its own — without the
 wrapper, an error (like the RETURNING one above, before it was fixed) means
@@ -148,3 +165,11 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
   are implemented against DocuSign's documented REST API but, like Cognito
   token verification, are never exercised for real in CI — no DocuSign
   account of any kind exists yet.
+- `src/lib/email.test.js` (issue #11) sends a real email through
+  LocalStack's SES emulation and reads it back via LocalStack's `/_aws/ses`
+  inspection endpoint — worth exercising the actual send, same bar as
+  `s3.js`'s tests, rather than mocking the SDK call. `src/routes/conveyancer.js`'s
+  handoff route needs a real seller Cognito token to test past
+  `requireAuth`, so — like the checkout/envelope-creation routes in #9/#10
+  — it only has a "requires auth" HTTP check; it introduces no RLS of its
+  own to test at that layer either (see `db/migrations/0020`'s comment).

@@ -109,3 +109,19 @@ it (the same reason `0014`'s `payfast_webhook_reads_own_payment` was
 needed for its own INSERT-subquery cross-checks) -- confirms the earlier
 "cross-table subquery" red herring from `0015`'s development was never the
 real problem; the missing SELECT policy always was.
+
+`0018_providers.sql` / `0019_providers_rls.sql` (issue #11, marketplace)
+break the pattern in a different direction: `providers` is SellSmart's own
+curated business directory (name/category/location/blurb), not
+user-submitted or personal data, so `public_reads_providers` really is a
+bare `USING (true)` -- the first table in this schema where that's actually
+safe, rather than the deliberately-narrower "id is the capability" shape
+everything else uses. `0018` also seeds the same catalog `src/data/seed.js`
+already has (with `.example`-TLD emails -- these are mockup businesses, not
+real companies, and must never be emailable until real providers are
+onboarded), so the directory has real content from the first migration run
+instead of an empty table. `0020_otps_conveyancer.sql` adds the handoff
+columns to `otps` but no new RLS at all: the existing `seller_updates_own_otps`
+policy (`0010`) already covers writing them, since there's no webhook actor
+here -- a conveyancer's own updates are manual/email-driven for now
+(MVP-SPEC.md), unlike payments (#9) or e-signature (#10).
