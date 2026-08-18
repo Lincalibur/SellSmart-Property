@@ -1,0 +1,95 @@
+# Internal QA environment (issue #14 follow-on, "manual QA deployment
+# pipeline") -- lets the team click through the real API + frontend on
+# their own Debian server before any AWS account exists. Every service
+# declares both `build` and `image`: `docker compose build` works locally
+# during development, while the Debian server only ever needs
+# `docker compose pull && docker compose up -d` against the GHCR images
+# published by .github/workflows/publish-qa-images.yml (workflow_dispatch,
+# manual trigger only), no build toolchain required there.
+#
+# Payment/e-sign/storage/email stay disconnected from real accounts here,
+# same as current dev/CI behavior: PayFast falls back to its published
+# sandbox creds (api/src/lib/payfast.js), DocuSign/SES/S3 env vars are left
+# blank, so document upload, e-signature and email routes won't work in
+# this environment -- everything else (listings, enquiries, viewings, OTP
+# builder, admin panel against the DB) does.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sellsmart
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/qa-init.sql:/docker-entrypoint-initdb.d/qa-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: ghcr.io/lincalibur/sellsmart-property-api:latest
+    command: ["node", "scripts/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://app_qa:app_qa@postgres:5432/sellsmart
+      DATABASE_SSL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: ghcr.io/lincalibur/sellsmart-property-api:latest
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgres://app_qa:app_qa@postgres:5432/sellsmart
+      DATABASE_SSL: "false"
+      # Syntactically valid but not backed by any real Cognito pool --
+      # aws-jwt-verify validates the format at import time (see
+      # api/src/middleware/auth.js), so this is required just for the
+      # process to boot. Every auth-gated route correctly fails auth as a
+      # result, which is expected with no AWS account.
+      COGNITO_USER_POOL_ID: af-south-1_qaplaceholder
+      COGNITO_CLIENT_ID: qaplaceholder
+      AWS_REGION: af-south-1
+      # Left blank on purpose -- see the file header comment.
+      DOCUMENTS_BUCKET: ""
+      S3_ENDPOINT: ""
+      PAYFAST_MERCHANT_ID: ""
+      PAYFAST_MERCHANT_KEY: ""
+      PAYFAST_PASSPHRASE: ""
+      PAYFAST_CHECKOUT_URL: ""
+      DOCUSIGN_AUTH_SERVER: ""
+      DOCUSIGN_BASE_PATH: ""
+      DOCUSIGN_INTEGRATION_KEY: ""
+      DOCUSIGN_USER_ID: ""
+      DOCUSIGN_ACCOUNT_ID: ""
+      DOCUSIGN_PRIVATE_KEY: ""
+      DOCUSIGN_CONNECT_HMAC_KEY: ""
+      EMAIL_FROM: ""
+      SES_ENDPOINT: ""
+      COGNITO_ENDPOINT: ""
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: ghcr.io/lincalibur/sellsmart-property-frontend:latest
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:
