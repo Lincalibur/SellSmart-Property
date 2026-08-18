@@ -100,6 +100,10 @@ test("payfast_webhook scoped to THIS payment id can update it, and activate its 
       [paymentId, draftListingId]
     );
     process.stderr.write("DIAG: " + JSON.stringify(diag.rows[0]) + "\n");
+    const policies = await client.query(
+      "SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'listings' AND policyname LIKE 'payfast%'"
+    );
+    process.stderr.write("DIAG policies: " + JSON.stringify(policies.rows) + "\n");
     const listing = await client.query(
       "UPDATE listings SET status = 'active' WHERE id = $1 AND status = 'draft' RETURNING status",
       [draftListingId]
