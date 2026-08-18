@@ -110,3 +110,10 @@ instead of `serve`, same command shape) but isn't the default here on
 purpose -- an internal QA environment with no real auth in front of it
 (Cognito is only a syntactically-valid placeholder in this compose stack,
 see `docker-compose.yml`) shouldn't be open to the whole internet.
+
+**Where this actually runs, and how it stays up to date:** see
+[`docs/QA-Server-Operations.md`](docs/QA-Server-Operations.md) -- the
+server isn't kept running permanently, so the stack refreshes itself from
+`development` automatically at boot rather than needing anyone to SSH in.
+Read it before touching the QA server so we don't end up with duplicate
+checkouts or stacks.
