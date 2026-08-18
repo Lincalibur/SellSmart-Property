@@ -35,7 +35,7 @@ before(async () => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100" },
+      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100", email: "buyer@example.example" },
       offerPrice: 1000000,
       deposit: 100000,
       occupationDate: "2026-09-01",

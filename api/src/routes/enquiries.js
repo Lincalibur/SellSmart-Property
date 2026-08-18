@@ -3,6 +3,7 @@ import express from "express";
 import { pool, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
+import { notifyNewEnquiry } from "../lib/notify.js";
 
 export const enquiriesRouter = express.Router();
 
@@ -30,7 +31,7 @@ enquiriesRouter.post(
     }
 
     const listing = await pool.query(
-      "SELECT seller_id FROM listings WHERE id = $1 AND status = 'active'",
+      "SELECT seller_id, title FROM listings WHERE id = $1 AND status = 'active'",
       [req.params.listingId]
     );
     if (listing.rows.length === 0) {
@@ -44,6 +45,16 @@ enquiriesRouter.post(
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [id, req.params.listingId, listing.rows[0].seller_id, name, email, phone ?? "", message, createdAt]
     );
+
+    // Not awaited: a side effect of an already-successful write, never
+    // worth delaying the response for (notify.js never rejects anyway).
+    notifyNewEnquiry({
+      sellerId: listing.rows[0].seller_id,
+      listingTitle: listing.rows[0].title,
+      name,
+      message,
+    });
+
     res.status(201).json({
       id,
       listingId: req.params.listingId,

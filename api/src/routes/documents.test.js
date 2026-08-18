@@ -23,9 +23,9 @@ before(async () => {
   );
   await withOtpAccess(otpId, (client) =>
     client.query(
-      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact,
+      `INSERT INTO otps (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
                           offer_price, deposit, occupation_date)
-       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 1000000, 100000, '2026-09-01')`,
+       VALUES ($1, $2, $3, 'Buyer One', '8001015800082', '082 555 0100', 'buyer@example.example', 1000000, 100000, '2026-09-01')`,
       [otpId, listingId, seller.id]
     )
   );

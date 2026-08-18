@@ -42,7 +42,7 @@ test("full OTP flow: submit, then buyer-side transitions before acceptance", asy
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100" },
+      buyer: { name: "Buyer One", idNumber: "8001015800082", contact: "082 555 0100", email: "buyer@example.example" },
       offerPrice: 950000,
       deposit: 95000,
       occupationDate: "2026-09-01",
@@ -58,17 +58,17 @@ test("full OTP flow: submit, then buyer-side transitions before acceptance", asy
   assert.equal(getRes.status, 200);
   assert.equal((await getRes.json()).offerPrice, 950000);
 
-  // Seller-side transitions (counter/accept/reject/sign) need requireAuth,
+  // Seller-side transitions (counter/accept/reject) need requireAuth,
   // which can't be exercised without a real Cognito pool -- proven at the
   // RLS layer instead, in otps.test.js. This confirms the buyer-facing
   // half of the request pipeline (routing, JSON parsing, history rows,
   // RETURNING) works end to end, including guarding against skipping
-  // straight to accept-counter/sign without a seller response first.
+  // straight to accept-counter without a seller response first.
   const acceptCounterOn404 = await fetch(`${baseUrl}/api/otps/${otpId}/accept-counter`, { method: "POST" });
   assert.equal(acceptCounterOn404.status, 400, "no counter-offer exists yet");
 
-  const signBeforeAccepted = await fetch(`${baseUrl}/api/otps/${otpId}/sign`, { method: "POST" });
-  assert.equal(signBeforeAccepted.status, 400, "can't sign before the offer is accepted");
+  // Signing itself now goes through DocuSign (routes/docusign.js, issue
+  // #10) -- see that file's own tests for its signing-url route.
 });
 
 test("POST /api/listings/:id/otps 404s for an unknown listing", async () => {
@@ -76,7 +76,7 @@ test("POST /api/listings/:id/otps 404s for an unknown listing", async () => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      buyer: { name: "Buyer", idNumber: "1", contact: "1" },
+      buyer: { name: "Buyer", idNumber: "1", contact: "1", email: "x@example.example" },
       offerPrice: 1,
       deposit: 1,
       occupationDate: "2026-09-01",
@@ -104,7 +104,6 @@ test("PATCH /api/otps/mine/:id requires auth", async () => {
   assert.equal(res.status, 401);
 });
 
-test("POST /api/otps/mine/:id/sign requires auth", async () => {
-  const res = await fetch(`${baseUrl}/api/otps/mine/some-id/sign`, { method: "POST" });
-  assert.equal(res.status, 401);
-});
+// POST /otps/mine/:id/sign and /otps/:id/sign no longer exist -- signing
+// now goes through DocuSign (routes/docusign.js, issue #10). See that
+// file's own tests.

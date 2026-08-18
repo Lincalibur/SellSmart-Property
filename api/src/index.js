@@ -36,7 +36,12 @@ app.use("/api", paymentsRouter);
 app.use("/api", docusignRouter);
 app.use("/api", providersRouter);
 app.use("/api", conveyancerRouter);
-app.use("/api", adminRouter);
+// Mounted at its own prefix, not the shared "/api" every other router
+// uses -- adminRouter's own requireAuth/requireRole middleware has no
+// path filter, so mounting it at "/api" would apply that middleware to
+// every unmatched "/api/*" request that reaches it, not just "/admin/*"
+// ones (see admin.js's comment for how this was actually found).
+app.use("/api/admin", adminRouter);
 
 // Catches anything asyncRoute forwarded via next(err) -- without this,
 // Express 4's default error handler still responds, but with no logging

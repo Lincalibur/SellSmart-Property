@@ -3,14 +3,15 @@ import express from "express";
 import { pool, withOtpAccess, withUserContext } from "../db/pool.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/asyncRoute.js";
+import { notifyCounterAccepted, notifyNewOffer, notifySellerResponse } from "../lib/notify.js";
 
 export const otpsRouter = express.Router();
 
 const OTP_COLUMNS = `
-  id, listing_id, buyer_name, buyer_id_number, buyer_contact, offer_price,
-  deposit, occupation_date, occupational_rent, bond_amount, fixtures,
-  suspensive_conditions, special_conditions, status, counter_price,
-  signed_by_buyer, signed_by_seller, created_at, updated_at
+  id, listing_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
+  offer_price, deposit, occupation_date, occupational_rent, bond_amount,
+  fixtures, suspensive_conditions, special_conditions, status,
+  counter_price, signed_by_buyer, signed_by_seller, created_at, updated_at
 `;
 
 // Matches src/context/AppContext.jsx's otp shape (nested `buyer`, not flat
@@ -20,7 +21,12 @@ function toOtpJson(row) {
   return {
     id: row.id,
     listingId: row.listing_id,
-    buyer: { name: row.buyer_name, idNumber: row.buyer_id_number, contact: row.buyer_contact },
+    buyer: {
+      name: row.buyer_name,
+      idNumber: row.buyer_id_number,
+      contact: row.buyer_contact,
+      email: row.buyer_email,
+    },
     offerPrice: Number(row.offer_price),
     deposit: Number(row.deposit),
     occupationDate: row.occupation_date,
@@ -64,14 +70,22 @@ otpsRouter.post(
   "/listings/:listingId/otps",
   asyncRoute(async (req, res) => {
     const { buyer, offerPrice, deposit, occupationDate } = req.body;
-    if (!buyer?.name || !buyer?.idNumber || !buyer?.contact || !offerPrice || !deposit || !occupationDate) {
+    if (
+      !buyer?.name ||
+      !buyer?.idNumber ||
+      !buyer?.contact ||
+      !buyer?.email ||
+      !offerPrice ||
+      !deposit ||
+      !occupationDate
+    ) {
       return res.status(400).json({
-        error: "buyer (name, idNumber, contact), offerPrice, deposit and occupationDate are required.",
+        error: "buyer (name, idNumber, contact, email), offerPrice, deposit and occupationDate are required.",
       });
     }
 
     const listing = await pool.query(
-      "SELECT seller_id FROM listings WHERE id = $1 AND status = 'active'",
+      "SELECT seller_id, title FROM listings WHERE id = $1 AND status = 'active'",
       [req.params.listingId]
     );
     if (listing.rows.length === 0) {
@@ -82,10 +96,10 @@ otpsRouter.post(
     const result = await withOtpAccess(id, async (client) => {
       const inserted = await client.query(
         `INSERT INTO otps
-           (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, offer_price,
-            deposit, occupation_date, occupational_rent, bond_amount, fixtures,
+           (id, listing_id, seller_id, buyer_name, buyer_id_number, buyer_contact, buyer_email,
+            offer_price, deposit, occupation_date, occupational_rent, bond_amount, fixtures,
             suspensive_conditions, special_conditions)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${OTP_COLUMNS}`,
         [
           id,
@@ -94,6 +108,7 @@ otpsRouter.post(
           buyer.name,
           buyer.idNumber,
           buyer.contact,
+          buyer.email,
           offerPrice,
           deposit,
           occupationDate,
@@ -110,6 +125,14 @@ otpsRouter.post(
         [id, listing.rows[0].seller_id, offerPrice]
       );
       return { ...toOtpJson(inserted.rows[0]), history: await fetchHistory(client, id) };
+    });
+
+    // Not awaited -- see the comment in enquiries.js's POST route.
+    notifyNewOffer({
+      sellerId: listing.rows[0].seller_id,
+      listingTitle: listing.rows[0].title,
+      buyerName: buyer.name,
+      offerPrice,
     });
 
     res.status(201).json(result);
@@ -156,9 +179,12 @@ otpsRouter.post(
   "/otps/:id/accept-counter",
   asyncRoute(async (req, res) => {
     const result = await withOtpAccess(req.params.id, async (client) => {
-      const current = await client.query("SELECT status, counter_price, seller_id FROM otps WHERE id = $1", [
-        req.params.id,
-      ]);
+      const current = await client.query(
+        `SELECT o.status, o.counter_price, o.seller_id, l.title AS listing_title
+         FROM otps o JOIN listings l ON l.id = o.listing_id
+         WHERE o.id = $1`,
+        [req.params.id]
+      );
       if (current.rows.length === 0) return null;
       if (current.rows[0].status !== "countered") {
         return { error: "No pending counter-offer to accept." };
@@ -174,7 +200,10 @@ otpsRouter.post(
          VALUES ($1, $2, 'Counter-offer accepted', 'buyer', $3)`,
         [req.params.id, current.rows[0].seller_id, current.rows[0].counter_price]
       );
-      return { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) };
+      return {
+        otp: { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) },
+        notify: { sellerId: current.rows[0].seller_id, listingTitle: current.rows[0].listing_title, counterPrice: current.rows[0].counter_price },
+      };
     });
 
     if (!result) {
@@ -183,43 +212,9 @@ otpsRouter.post(
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
-    res.json(result);
-  })
-);
 
-// Sign OTP (buyer side) -- simulated signing (matches MVP-SPEC.md #9:
-// "opens e-signature step... simulated in mockup"); real DocuSign
-// integration is issue #10.
-otpsRouter.post(
-  "/otps/:id/sign",
-  asyncRoute(async (req, res) => {
-    const result = await withOtpAccess(req.params.id, async (client) => {
-      const current = await client.query("SELECT status, seller_id FROM otps WHERE id = $1", [req.params.id]);
-      if (current.rows.length === 0) return null;
-      if (current.rows[0].status !== "accepted") {
-        return { error: "The offer must be accepted before it can be signed." };
-      }
-
-      const updated = await client.query(
-        `UPDATE otps SET signed_by_buyer = true, updated_at = now()
-         WHERE id = $1 RETURNING ${OTP_COLUMNS}`,
-        [req.params.id]
-      );
-      await client.query(
-        `INSERT INTO otp_history (otp_id, seller_id, event, by_party)
-         VALUES ($1, $2, 'Signed by buyer', 'buyer')`,
-        [req.params.id, current.rows[0].seller_id]
-      );
-      return { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) };
-    });
-
-    if (!result) {
-      return res.status(404).json({ error: "Offer not found." });
-    }
-    if (result.error) {
-      return res.status(400).json({ error: result.error });
-    }
-    res.json(result);
+    notifyCounterAccepted(result.notify); // not awaited -- see enquiries.js's POST route
+    res.json(result.otp);
   })
 );
 
@@ -279,42 +274,22 @@ otpsRouter.patch(
     if (!result) {
       return res.status(404).json({ error: "Offer not found." });
     }
-    res.json(result);
-  })
-);
 
-// Sign OTP (seller side).
-otpsRouter.post(
-  "/otps/mine/:id/sign",
-  requireAuth,
-  requireRole("seller"),
-  asyncRoute(async (req, res) => {
-    const result = await withUserContext(req.user, async (client) => {
-      const current = await client.query("SELECT status FROM otps WHERE id = $1", [req.params.id]);
-      if (current.rows.length === 0) return null;
-      if (current.rows[0].status !== "accepted") {
-        return { error: "The offer must be accepted before it can be signed." };
-      }
-
-      const updated = await client.query(
-        `UPDATE otps SET signed_by_seller = true, updated_at = now()
-         WHERE id = $1 RETURNING ${OTP_COLUMNS}`,
-        [req.params.id]
-      );
-      await client.query(
-        `INSERT INTO otp_history (otp_id, seller_id, event, by_party)
-         VALUES ($1, $2, 'Signed by seller', 'seller')`,
-        [req.params.id, req.user.id]
-      );
-      return { ...toOtpJson(updated.rows[0]), history: await fetchHistory(client, req.params.id) };
+    // Not awaited -- see the comment in enquiries.js's POST route.
+    notifySellerResponse({
+      buyerEmail: result.buyer.email,
+      decision,
+      offerPrice: result.offerPrice,
+      counterPrice: result.counterPrice,
     });
-
-    if (!result) {
-      return res.status(404).json({ error: "Offer not found." });
-    }
-    if (result.error) {
-      return res.status(400).json({ error: result.error });
-    }
     res.json(result);
   })
 );
+
+// Signing itself now goes through DocuSign (see routes/docusign.js's
+// envelope/signing-url routes and Connect webhook, issue #10) -- the
+// direct-POST simulated sign routes that used to live here would let
+// anyone who knows an OTP id (or, for the seller route, any seller who
+// owns it) mark signed_by_buyer/signed_by_seller true without DocuSign
+// ever being involved. Removed rather than left dead: they were still
+// reachable and would have bypassed e-signature entirely.
