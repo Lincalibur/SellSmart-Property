@@ -91,6 +91,15 @@ test("payfast_webhook scoped to THIS payment id can update it, and activate its 
       "UPDATE payments SET status = 'complete' WHERE id = $1 RETURNING status",
       [paymentId]
     );
+    const diag = await client.query(
+      `SELECT current_setting('app.current_user_role', true) AS role,
+              current_setting('app.current_payment_id', true) AS payment_id_setting,
+              $1::text AS expected_payment_id,
+              (SELECT listing_id::text FROM payments WHERE id::text = current_setting('app.current_payment_id', true)) AS subquery_listing_id,
+              $2::text AS expected_listing_id`,
+      [paymentId, draftListingId]
+    );
+    process.stderr.write("DIAG: " + JSON.stringify(diag.rows[0]) + "\n");
     const listing = await client.query(
       "UPDATE listings SET status = 'active' WHERE id = $1 AND status = 'draft' RETURNING status",
       [draftListingId]
