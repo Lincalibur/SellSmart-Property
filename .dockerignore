@@ -1,0 +1,11 @@
+node_modules
+api/node_modules
+dist
+dist-ssr
+.git
+.github
+terraform
+docs
+*.local
+.env
+api/.env
