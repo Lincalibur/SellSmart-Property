@@ -168,7 +168,11 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sellsmart DATABASE_SSL=false no
 - `src/lib/email.test.js` (issue #11) sends a real email through
   LocalStack's SES emulation and reads it back via LocalStack's `/_aws/ses`
   inspection endpoint — worth exercising the actual send, same bar as
-  `s3.js`'s tests, rather than mocking the SDK call. `src/routes/conveyancer.js`'s
+  `s3.js`'s tests, rather than mocking the SDK call. LocalStack's SES still
+  enforces sender verification, so the `EMAIL_FROM` address needs
+  `aws --endpoint-url=http://localhost:4566 ses verify-email-identity --email-address <address>`
+  once per LocalStack instance before this test can pass (CI does this;
+  do the same locally). `src/routes/conveyancer.js`'s
   handoff route needs a real seller Cognito token to test past
   `requireAuth`, so — like the checkout/envelope-creation routes in #9/#10
   — it only has a "requires auth" HTTP check; it introduces no RLS of its
