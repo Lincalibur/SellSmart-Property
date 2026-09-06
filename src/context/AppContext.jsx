@@ -5,7 +5,8 @@ const STORAGE_KEY = 'sellsmart-mock-state-v1'
 
 function freshState() {
   return {
-    role: 'seller', // 'seller' | 'buyer' — lets you demo both sides of the flow
+    role: null, // 'seller' | 'buyer', null until the visitor picks one on arrival
+    roleChosen: false,
     account: null,
     selectedPackageId: null,
     draftListing: null,
@@ -42,7 +43,7 @@ function bumpStage(state, minIndex) {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_ROLE':
-      return { ...state, role: action.role }
+      return { ...state, role: action.role, roleChosen: true }
 
     case 'CREATE_ACCOUNT':
       return { ...state, account: action.account }

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAppState, useAppDispatch } from '../context/AppContext'
-import { Button, Card, Tag, formatZAR, inputClass, Field } from '../components/ui'
+import { Button, Card, Check, Tag, formatZAR, inputClass, Field } from '../components/ui'
 import Modal from '../components/Modal'
+import Stepper from '../components/Stepper'
 
 export default function PropertyDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { listings } = useAppState()
+  const { listings, role } = useAppState()
   const dispatch = useAppDispatch()
   const listing = listings.find((l) => l.id === id)
 
@@ -59,6 +60,11 @@ export default function PropertyDetail() {
 
   return (
     <div className="container-page py-10">
+      {role === 'buyer' && (
+        <div className="max-w-md mb-6">
+          <Stepper step={2} total={4} label="View property" />
+        </div>
+      )}
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="rounded-2xl overflow-hidden aspect-[16/10] bg-navy-50 mb-3">
@@ -90,11 +96,11 @@ export default function PropertyDetail() {
           <p className="text-navy-600/70 mb-3">{listing.location}</p>
           <p className="text-3xl font-extrabold text-navy-900 mb-6">{formatZAR(listing.price)}</p>
 
-          <div className="flex flex-wrap gap-4 mb-6 text-sm font-medium text-navy-800">
-            <span>🛏 {listing.beds} Beds</span>
-            <span>🛁 {listing.baths} Baths</span>
-            <span>🚗 {listing.parking} Parking</span>
-            <span>📐 {listing.size} m²</span>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-6 text-sm font-medium text-navy-800 divide-x divide-navy-200">
+            <span>{listing.beds} Beds</span>
+            <span className="pl-4">{listing.baths} Baths</span>
+            <span className="pl-4">{listing.parking} Parking</span>
+            <span className="pl-4">{listing.size} m²</span>
           </div>
 
           {listing.extras?.length > 0 && (
@@ -113,9 +119,9 @@ export default function PropertyDetail() {
           <Card className="p-5 sticky top-24">
             {sent && (
               <div className="mb-4 text-sm bg-brand-green-50 text-brand-green-700 rounded-lg px-3 py-2">
-                {sent === 'enquiry'
-                  ? '✔ Enquiry sent to the seller.'
-                  : '✔ Viewing request sent to the seller.'}
+                <Check>
+                  {sent === 'enquiry' ? 'Enquiry sent to the seller.' : 'Viewing request sent to the seller.'}
+                </Check>
               </div>
             )}
             <h3 className="font-semibold text-navy-900 mb-1">Contact Seller</h3>

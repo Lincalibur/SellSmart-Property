@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, formatZAR } from '../../components/ui'
+import Stepper from '../../components/Stepper'
+import { PenIcon, CheckCircleIcon } from '../../components/icons'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 
 export default function Signing() {
@@ -25,10 +27,11 @@ export default function Signing() {
   return (
     <div className="bg-navy-50 min-h-[calc(100vh-4rem)] py-10">
       <div className="container-page max-w-lg">
+        {status !== 'signed' && <Stepper step={4} total={4} label="Sign" />}
         <Card className="p-8 text-center">
           {status !== 'signed' ? (
             <>
-              <div className="text-4xl mb-4">✍️</div>
+              <PenIcon className="w-10 h-10 mx-auto mb-4 text-navy-700" />
               <h1 className="text-xl font-bold text-navy-900 mb-2">Sign your Offer to Purchase</h1>
               <p className="text-navy-600/70 text-sm mb-6">
                 Offer amount {formatZAR(otp.offerPrice)}. You&rsquo;ll be securely verified and asked to
@@ -43,7 +46,7 @@ export default function Signing() {
             </>
           ) : (
             <>
-              <div className="text-4xl mb-4">✅</div>
+              <CheckCircleIcon className="w-10 h-10 mx-auto mb-4 text-brand-green-600" />
               <h1 className="text-xl font-bold text-navy-900 mb-2">OTP Signed</h1>
               <p className="text-navy-600/70 text-sm mb-6">
                 Your signed offer has been sent to the seller. You can track progress from your dashboard.

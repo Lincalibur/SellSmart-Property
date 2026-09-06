@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '../../components/OnboardingLayout'
 import Stepper from '../../components/Stepper'
 import { Button, Field, Tip, inputClass } from '../../components/ui'
+import { UploadIcon } from '../../components/icons'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 
 const EXTRA_OPTIONS = ['Pool', 'Garden', 'Solar power', 'Alarm system', 'Fibre ready', 'Sea view', 'Braai area']
@@ -47,7 +48,7 @@ export default function ListingWizard() {
     <OnboardingLayout wide>
       {step === 2 && (
         <>
-          <Stepper step={2} total={5} label="Property details" />
+          <Stepper step={5} total={7} label="Property details" />
           <h1 className="text-xl font-bold text-navy-900 mb-6">Add a few more details</h1>
           <div className="space-y-4">
             <Field label="Size (m²)">
@@ -96,7 +97,7 @@ export default function ListingWizard() {
 
       {step === 3 && (
         <>
-          <Stepper step={3} total={5} label="Price" />
+          <Stepper step={5} total={7} label="Price" />
           <h1 className="text-xl font-bold text-navy-900 mb-6">Set your asking price</h1>
           <div className="space-y-4">
             <Field label="Asking Price (ZAR)">
@@ -119,7 +120,7 @@ export default function ListingWizard() {
 
       {step === 4 && (
         <>
-          <Stepper step={4} total={5} label="Description" />
+          <Stepper step={5} total={7} label="Description" />
           <h1 className="text-xl font-bold text-navy-900 mb-6">Describe your property</h1>
           <div className="space-y-4">
             <Field label="Listing Title">
@@ -142,7 +143,7 @@ export default function ListingWizard() {
               />
             </Field>
             <button type="button" className="text-xs font-semibold text-brand-green-700 hover:underline" disabled>
-              ✨ Generate description (coming soon)
+              Generate description (coming soon)
             </button>
             <Button
               className="w-full"
@@ -157,7 +158,7 @@ export default function ListingWizard() {
 
       {step === 5 && (
         <>
-          <Stepper step={5} total={5} label="Photos" />
+          <Stepper step={5} total={7} label="Photos" />
           <h1 className="text-xl font-bold text-navy-900 mb-6">Add photos</h1>
           <button
             type="button"
@@ -173,10 +174,13 @@ export default function ListingWizard() {
                 ))}
               </div>
             ) : (
-              <span className="text-navy-600 text-sm">📸 Drag &amp; drop images, or click to upload</span>
+              <span className="text-navy-600 text-sm flex items-center justify-center gap-2">
+                <UploadIcon className="w-5 h-5 text-navy-400" />
+                Drag &amp; drop images, or click to upload
+              </span>
             )}
           </button>
-          <Tip>Tip: Listings with photos get more enquiries.</Tip>
+          <Tip>Listings with photos get more enquiries.</Tip>
           <Button className="w-full mt-4" onClick={finish}>Continue</Button>
         </>
       )}

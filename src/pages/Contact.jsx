@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Field, inputClass } from '../components/ui'
+import { Button, Check, Field, inputClass } from '../components/ui'
 
 export default function Contact() {
   const [sent, setSent] = useState(false)
@@ -10,7 +10,7 @@ export default function Contact() {
       <p className="text-navy-600/70 mb-8">We typically respond within one business day.</p>
       {sent ? (
         <div className="bg-brand-green-50 text-brand-green-700 rounded-lg px-4 py-3 text-sm">
-          ✔ Thanks — your message has been sent to our support team.
+          <Check>Thanks — your message has been sent to our support team.</Check>
         </div>
       ) : (
         <form

@@ -57,7 +57,7 @@ export default function OTPBuilder() {
 
           {step === 1 && (
             <>
-              <Stepper step={1} total={3} label="Buyer details" />
+              <Stepper step={3} total={4} label="Make an offer — Buyer details" />
               <div className="space-y-4">
                 <Field label="Full Name">
                   <input
@@ -92,7 +92,7 @@ export default function OTPBuilder() {
 
           {step === 2 && (
             <>
-              <Stepper step={2} total={3} label="Offer details" />
+              <Stepper step={3} total={4} label="Make an offer — Offer details" />
               <div className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Field label="Offer Price (ZAR)">
@@ -179,7 +179,7 @@ export default function OTPBuilder() {
 
           {step === 3 && (
             <>
-              <Stepper step={3} total={3} label="Review" />
+              <Stepper step={3} total={4} label="Make an offer — Review" />
               <div className="space-y-3 text-sm mb-4">
                 <div className="grid grid-cols-2 gap-y-2">
                   <span className="text-navy-500">Buyer</span><span className="text-navy-900 font-medium">{buyer.name}</span>

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '../../components/OnboardingLayout'
+import Stepper from '../../components/Stepper'
 import { Button, Card, Tag, formatZAR } from '../../components/ui'
 import { useAppState } from '../../context/AppContext'
 
@@ -18,6 +19,7 @@ export default function ReviewListing() {
 
   return (
     <OnboardingLayout wide>
+      <Stepper step={6} total={7} label="Review" />
       <h1 className="text-xl font-bold text-navy-900 mb-1">Review your listing</h1>
       <p className="text-navy-600/70 text-sm mb-6">Make sure everything looks right before you publish.</p>
 

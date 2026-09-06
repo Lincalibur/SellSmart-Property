@@ -26,7 +26,7 @@ export default function QuickSetup() {
 
   return (
     <OnboardingLayout>
-      <Stepper step={1} total={5} label="Basic details" />
+      <Stepper step={4} total={7} label="Property basics" />
       <h1 className="text-xl font-bold text-navy-900 mb-1">Tell us about your property</h1>
       <p className="text-navy-600/70 text-sm mb-6">Just the basics for now — you can add more next.</p>
 

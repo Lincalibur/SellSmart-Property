@@ -1,5 +1,5 @@
 import DashboardLayout from '../../components/DashboardLayout'
-import { Button, Card, Tag } from '../../components/ui'
+import { Button, Card, Check, Tag } from '../../components/ui'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 
 const OWNER_LABEL = { buyer: 'Buyer', seller: 'Seller', shared: 'Both parties' }
@@ -26,7 +26,7 @@ export default function Documents() {
             </div>
             <div className="flex items-center gap-3">
               {doc.status === 'uploaded' ? (
-                <Tag tone="green">✔ Uploaded</Tag>
+                <Tag tone="green"><Check>Uploaded</Check></Tag>
               ) : (
                 <Tag tone="amber">Pending</Tag>
               )}

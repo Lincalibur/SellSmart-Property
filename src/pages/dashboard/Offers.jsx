@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
-import { Button, Card, Field, Tag, formatZAR, inputClass } from '../../components/ui'
+import { Button, Card, Check, Field, Tag, formatZAR, inputClass } from '../../components/ui'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 
 const STATUS_TONE = {
@@ -94,14 +94,14 @@ export default function Offers() {
                   disabled={otp.signedBySeller}
                   onClick={() => dispatch({ type: 'SIGN_OTP', party: 'seller' })}
                 >
-                  {otp.signedBySeller ? '✔ You have signed' : 'Sign OTP as Seller'}
+                  {otp.signedBySeller ? <Check>You have signed</Check> : 'Sign OTP as Seller'}
                 </Button>
               </div>
             )}
 
             {otp.signedByBuyer && otp.signedBySeller && (
               <p className="text-sm font-semibold text-brand-green-700 border-t border-navy-100 pt-4 mt-4">
-                ✔ OTP fully signed by both parties.
+                <Check>OTP fully signed by both parties.</Check>
               </p>
             )}
           </Card>

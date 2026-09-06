@@ -24,7 +24,7 @@ export default function AccountCreation() {
 
   return (
     <OnboardingLayout>
-      <Stepper step={1} total={2} label="Getting started" />
+      <Stepper step={2} total={7} label="Create account" />
       <h1 className="text-xl font-bold text-navy-900 mb-1">Create your account</h1>
       <p className="text-navy-600/70 text-sm mb-6">Keep this simple — you can add more detail later.</p>
 

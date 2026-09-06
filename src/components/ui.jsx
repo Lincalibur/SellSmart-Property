@@ -1,3 +1,5 @@
+import { CheckIcon } from './icons'
+
 export function Button({ as: As = 'button', variant = 'primary', className = '', ...props }) {
   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-colors px-5 py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed'
   const variants = {
@@ -48,10 +50,19 @@ export function Tag({ children, tone = 'green' }) {
 
 export function Tip({ children }) {
   return (
-    <div className="flex items-start gap-2 bg-brand-green-50 text-brand-green-800 text-sm rounded-lg px-3.5 py-2.5">
-      <span aria-hidden="true">💡</span>
+    <div className="flex items-start gap-2.5 bg-brand-green-50 text-brand-green-800 text-sm rounded-lg px-3.5 py-2.5 border-l-2 border-brand-green-500">
+      <span className="font-semibold uppercase text-[11px] tracking-wide shrink-0 mt-0.5">Tip</span>
       <span>{children}</span>
     </div>
+  )
+}
+
+export function Check({ children, className = '' }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+      <CheckIcon className="w-3.5 h-3.5 text-brand-green-600 shrink-0" />
+      {children}
+    </span>
   )
 }
 

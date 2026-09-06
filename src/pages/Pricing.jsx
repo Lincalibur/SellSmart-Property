@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Button, Card, formatZAR } from '../components/ui'
+import { Button, Card, Check, formatZAR } from '../components/ui'
 import { PACKAGES } from '../data/seed'
 
 export default function Pricing() {
@@ -17,8 +17,8 @@ export default function Pricing() {
             className={`p-6 flex flex-col ${pkg.popular ? 'ring-2 ring-brand-green-600 relative' : ''}`}
           >
             {pkg.popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                ⭐ Most Popular
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-green-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                Most Popular
               </span>
             )}
             <h3 className="font-bold text-navy-900 text-lg">{pkg.name}</h3>
@@ -26,9 +26,7 @@ export default function Pricing() {
             <p className="text-sm text-navy-600/70 mb-4">{pkg.tagline}</p>
             <ul className="space-y-2 text-sm text-navy-700 flex-1 mb-6">
               {pkg.features.map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <span className="text-brand-green-600">✔</span> {f}
-                </li>
+                <li key={f}><Check>{f}</Check></li>
               ))}
             </ul>
             <Button as={Link} to="/sell/start" variant={pkg.popular ? 'primary' : 'secondary'}>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '../../components/OnboardingLayout'
+import Stepper from '../../components/Stepper'
 import { Button, formatZAR } from '../../components/ui'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 import { PACKAGES } from '../../data/seed'
@@ -26,6 +27,7 @@ export default function Payment() {
 
   return (
     <OnboardingLayout>
+      <Stepper step={7} total={7} label="Payment" />
       <h1 className="text-xl font-bold text-navy-900 mb-1">Activate your listing</h1>
       <p className="text-navy-600/70 text-sm mb-6">Once-off fee. No commission.</p>
 

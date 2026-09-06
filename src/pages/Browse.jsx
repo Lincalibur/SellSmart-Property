@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import ListingCard from '../components/ListingCard'
+import Stepper from '../components/Stepper'
 import { inputClass } from '../components/ui'
 import { useAppState } from '../context/AppContext'
 import { PROPERTY_TYPES } from '../data/seed'
 
 export default function Browse() {
-  const { listings } = useAppState()
+  const { listings, role } = useAppState()
   const [location, setLocation] = useState('')
   const [type, setType] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
@@ -21,6 +22,11 @@ export default function Browse() {
 
   return (
     <div className="container-page py-10">
+      {role === 'buyer' && (
+        <div className="max-w-md mb-4">
+          <Stepper step={2} total={4} label="Browse properties" />
+        </div>
+      )}
       <h1 className="text-2xl md:text-3xl font-bold text-navy-900 mb-1">Browse Properties</h1>
       <p className="text-navy-600/70 mb-8">Enquiries go directly to the seller — no middleman.</p>
 

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import ProcessTracker from '../../components/ProcessTracker'
-import { Button, Card, Tag, formatZAR } from '../../components/ui'
+import { Button, Card, Check, Tag, formatZAR } from '../../components/ui'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 import { PROCESS_STAGES } from '../../data/seed'
 
@@ -51,9 +51,9 @@ export default function BuyerDashboard() {
                   {!otp.signedByBuyer ? (
                     <Button as={Link} to={`/property/${otp.listingId}/sign`}>Sign OTP</Button>
                   ) : otp.signedBySeller ? (
-                    <p className="text-sm font-semibold text-brand-green-700">✔ Fully signed by both parties</p>
+                    <p className="text-sm font-semibold text-brand-green-700"><Check>Fully signed by both parties</Check></p>
                   ) : (
-                    <p className="text-sm text-navy-600">✔ You&rsquo;ve signed — waiting on the seller.</p>
+                    <p className="text-sm text-navy-600"><Check>You&rsquo;ve signed — waiting on the seller.</Check></p>
                   )}
                 </div>
               )}
@@ -66,7 +66,7 @@ export default function BuyerDashboard() {
                   <li key={d.id} className="py-2.5 flex items-center justify-between">
                     <span className="text-sm text-navy-800">{d.name}</span>
                     {d.status === 'uploaded' ? (
-                      <Tag tone="green">✔ Uploaded</Tag>
+                      <Tag tone="green"><Check>Uploaded</Check></Tag>
                     ) : (
                       <button
                         type="button"

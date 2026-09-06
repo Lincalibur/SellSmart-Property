@@ -1,7 +1,8 @@
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, formatZAR } from '../components/ui'
+import { Button, Card, Check, formatZAR } from '../components/ui'
 import { PACKAGES } from '../data/seed'
+import { useAppState } from '../context/AppContext'
 
 const TRUST_ITEMS = [
   'Save thousands in commission',
@@ -11,10 +12,10 @@ const TRUST_ITEMS = [
 ]
 
 const HOW_IT_WORKS = [
-  { icon: '🏠', title: 'List your property', body: 'Add your property details, photos, and price.' },
-  { icon: '💬', title: 'Connect with buyers', body: 'Receive enquiries directly from interested buyers.' },
-  { icon: '🤝', title: 'Manage offers', body: 'Negotiate and agree on the best deal.' },
-  { icon: '📑', title: 'Close the deal', body: 'Use our tools and support to complete the process.' },
+  { title: 'List your property', body: 'Add your property details, photos, and price.' },
+  { title: 'Connect with buyers', body: 'Receive enquiries directly from interested buyers.' },
+  { title: 'Manage offers', body: 'Negotiate and agree on the best deal.' },
+  { title: 'Close the deal', body: 'Use our tools and support to complete the process.' },
 ]
 
 const COMPARISON = [
@@ -26,12 +27,12 @@ const COMPARISON = [
 ]
 
 const FEATURES = [
-  { icon: '📊', title: 'Seller dashboard', body: 'Track listings, enquiries, offers and documents in one place.' },
-  { icon: '📄', title: 'Legal documents & templates', body: 'Guided OTP builder and a document hub built for SA compliance.' },
-  { icon: '💬', title: 'Direct buyer enquiries', body: 'No middleman — buyers reach you directly.' },
-  { icon: '📅', title: 'Viewing scheduler', body: 'Accept or reschedule requests without back-and-forth calls.' },
-  { icon: '📈', title: 'Listing exposure', body: 'Get your property in front of serious buyers.' },
-  { icon: '🧠', title: 'Expert support (optional)', body: 'Get help when you want it, stay in control when you don’t.' },
+  { title: 'Seller dashboard', body: 'Track listings, enquiries, offers and documents in one place.' },
+  { title: 'Legal documents & templates', body: 'Guided OTP builder and a document hub built for SA compliance.' },
+  { title: 'Direct buyer enquiries', body: 'No middleman — buyers reach you directly.' },
+  { title: 'Viewing scheduler', body: 'Accept or reschedule requests without back-and-forth calls.' },
+  { title: 'Listing exposure', body: 'Get your property in front of serious buyers.' },
+  { title: 'Expert support (optional)', body: 'Get help when you want it, stay in control when you don’t.' },
 ]
 
 const TESTIMONIALS = [
@@ -40,6 +41,10 @@ const TESTIMONIALS = [
 ]
 
 export default function Home() {
+  const { role } = useAppState()
+  const isBuyer = role === 'buyer'
+  const sellCta = isBuyer ? { to: '/browse', label: 'Browse Properties' } : { to: '/sell/start', label: 'Start Selling' }
+
   return (
     <div>
       {/* HERO */}
@@ -53,17 +58,19 @@ export default function Home() {
               List, sell, and save — with expert support when you need it
             </p>
             <ul className="space-y-2 mb-8 text-navy-100/90 text-sm">
-              <li>✔ No agent commission</li>
-              <li>✔ Full control of your sale</li>
-              <li>✔ Step-by-step guidance</li>
+              <li><Check>No agent commission</Check></li>
+              <li><Check>Full control of your sale</Check></li>
+              <li><Check>Step-by-step guidance</Check></li>
             </ul>
             <div className="flex flex-wrap gap-3">
-              <Button as={Link} to="/sell/start" variant="primary" className="px-6 py-3 text-base">
-                Start Selling
+              <Button as={Link} to={sellCta.to} variant="primary" className="px-6 py-3 text-base">
+                {sellCta.label}
               </Button>
-              <Button as={Link} to="/browse" variant="outlineLight" className="px-6 py-3 text-base">
-                Browse Properties
-              </Button>
+              {!isBuyer && (
+                <Button as={Link} to="/browse" variant="outlineLight" className="px-6 py-3 text-base">
+                  Browse Properties
+                </Button>
+              )}
             </div>
           </div>
           <div className="relative">
@@ -83,10 +90,7 @@ export default function Home() {
       <section className="bg-navy-800 text-white">
         <div className="container-page py-4 flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm font-medium">
           {TRUST_ITEMS.map((item) => (
-            <span key={item} className="flex items-center gap-2">
-              <span className="text-brand-green-400">✔</span>
-              {item}
-            </span>
+            <Check key={item}>{item}</Check>
           ))}
         </div>
       </section>
@@ -97,16 +101,17 @@ export default function Home() {
         <p className="text-navy-600/70 text-center mb-10">Four simple steps from listing to close.</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {HOW_IT_WORKS.map((step, i) => (
-            <Card key={step.title} className="p-6 text-center">
-              <div className="text-3xl mb-3">{step.icon}</div>
-              <p className="text-xs font-bold text-brand-green-600 mb-1">STEP {i + 1}</p>
+            <Card key={step.title} className="p-6">
+              <div className="w-8 h-8 rounded-full bg-navy-900 text-white text-sm font-bold flex items-center justify-center mb-4">
+                {i + 1}
+              </div>
               <h3 className="font-semibold text-navy-900 mb-1">{step.title}</h3>
               <p className="text-sm text-navy-600/70">{step.body}</p>
             </Card>
           ))}
         </div>
         <div className="text-center mt-10">
-          <Button as={Link} to="/sell/start">Start Selling Now</Button>
+          <Button as={Link} to={sellCta.to}>{isBuyer ? sellCta.label : 'Start Selling Now'}</Button>
         </div>
       </section>
 
@@ -145,8 +150,7 @@ export default function Home() {
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
           {FEATURES.map((f) => (
-            <Card key={f.title} className="p-6">
-              <div className="text-2xl mb-3">{f.icon}</div>
+            <Card key={f.title} className="p-6 border-l-2 border-l-brand-green-500">
               <h3 className="font-semibold text-navy-900 mb-1">{f.title}</h3>
               <p className="text-sm text-navy-600/70">{f.body}</p>
             </Card>
@@ -168,8 +172,8 @@ export default function Home() {
                 className={`p-6 flex flex-col ${pkg.popular ? 'ring-2 ring-brand-green-600 relative' : ''}`}
               >
                 {pkg.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    ⭐ Most Popular
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-green-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    Most Popular
                   </span>
                 )}
                 <h3 className="font-bold text-navy-900">{pkg.name}</h3>
@@ -177,13 +181,11 @@ export default function Home() {
                 <p className="text-sm text-navy-600/70 mb-4">{pkg.tagline}</p>
                 <ul className="space-y-2 text-sm text-navy-700 flex-1 mb-6">
                   {pkg.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2">
-                      <span className="text-brand-green-600">✔</span> {f}
-                    </li>
+                    <li key={f}><Check>{f}</Check></li>
                   ))}
                 </ul>
-                <Button as={Link} to="/sell/start" variant={pkg.popular ? 'primary' : 'secondary'}>
-                  Select Plan
+                <Button as={Link} to={sellCta.to} variant={pkg.popular ? 'primary' : 'secondary'}>
+                  {isBuyer ? sellCta.label : 'Select Plan'}
                 </Button>
               </Card>
             ))}
@@ -222,10 +224,14 @@ export default function Home() {
       {/* FINAL CTA */}
       <section className="bg-brand-green-600 text-white py-16 md:py-20">
         <div className="container-page text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">Ready to sell smarter?</h2>
-          <p className="mb-8 text-white/90">Join South Africans saving thousands in commission</p>
-          <Button as={Link} to="/sell/start" variant="secondary" className="px-6 py-3 text-base">
-            Start Selling Your Property
+          <h2 className="text-2xl md:text-3xl font-bold mb-2">
+            {isBuyer ? 'Ready to find your next home?' : 'Ready to sell smarter?'}
+          </h2>
+          <p className="mb-8 text-white/90">
+            {isBuyer ? 'Browse properties listed directly by their owners' : 'Join South Africans saving thousands in commission'}
+          </p>
+          <Button as={Link} to={sellCta.to} variant="secondary" className="px-6 py-3 text-base">
+            {isBuyer ? sellCta.label : 'Start Selling Your Property'}
           </Button>
         </div>
       </section>

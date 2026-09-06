@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
-import { Button, Card, Tag } from '../../components/ui'
+import { Button, Card, Check, Tag } from '../../components/ui'
 import { useAppDispatch, useAppState } from '../../context/AppContext'
 import { PROVIDERS } from '../../data/seed'
 
@@ -44,7 +44,7 @@ export default function Conveyancer() {
 
       {(sent || processStageIndex >= 5) && (
         <div className="mt-4 flex items-center gap-2">
-          <Tag tone="green">✔ Sent</Tag>
+          <Tag tone="green"><Check>Sent</Check></Tag>
           <p className="text-sm text-navy-700">
             OTP, buyer/seller details, and documents sent to{' '}
             {conveyancers.find((c) => c.id === selectedConveyancerId)?.name ?? 'your conveyancer'}.
