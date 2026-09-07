@@ -3,7 +3,7 @@ import { LISTINGS, DOCUMENT_CHECKLIST, PROCESS_STAGES } from '../data/seed'
 
 const STORAGE_KEY = 'sellsmart-mock-state-v1'
 
-function freshState() {
+export function freshState() {
   return {
     role: null, // 'seller' | 'buyer', null until the visitor picks one on arrival
     roleChosen: false,
@@ -40,7 +40,7 @@ function bumpStage(state, minIndex) {
   return Math.max(state.processStageIndex, minIndex)
 }
 
-function reducer(state, action) {
+export function reducer(state, action) {
   switch (action.type) {
     case 'SET_ROLE':
       return { ...state, role: action.role, roleChosen: true }
