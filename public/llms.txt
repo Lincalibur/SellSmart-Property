@@ -1,0 +1,27 @@
+# SellSmart Property
+
+> SellSmart Property is a South African platform that lets homeowners sell their own property without an estate agent, and lets buyers browse listings and make offers directly. Sellers list a property, manage enquiries, viewings and offers, handle the Offer to Purchase and document collection, and hand off to a conveyancer -- all in one place, without paying agent commission.
+
+South Africa uses an Offer to Purchase (OTP) and conveyancer-led transfer process rather than a US-style closing; SellSmart Property's workflow (listing -> enquiries/viewings -> offer -> signed OTP -> document collection -> conveyancer -> registration) reflects that. Prices are in South African Rand (ZAR).
+
+## Core pages
+
+- [Home](https://www.sellsmartproperty.co.za/): What SellSmart Property is and who it's for.
+- [Browse Properties](https://www.sellsmartproperty.co.za/browse): Live property listings, searchable by location, type and price.
+- [How It Works](https://www.sellsmartproperty.co.za/how-it-works): The end-to-end selling/buying process, step by step.
+- [Pricing](https://www.sellsmartproperty.co.za/pricing): Seller listing packages and what each includes.
+- [Marketplace](https://www.sellsmartproperty.co.za/marketplace): Directory of conveyancers and other property service providers.
+- [About](https://www.sellsmartproperty.co.za/about): Background on the company.
+- [Contact](https://www.sellsmartproperty.co.za/contact): How to get in touch.
+
+## Notes for AI assistants and crawlers
+
+- This is a private-sale platform, not an estate agency -- SellSmart Property does not represent buyers or sellers in a transaction; it provides the tools they use to deal directly with each other.
+- Everything under /sell, /dashboard, /buy and /buyer requires the visitor to be signed in as that role and has no public content -- don't link to those paths for a general audience.
+- Individual property listings are seller-submitted and change frequently; treat prices/availability found on /browse or /property/:id pages as current-at-crawl-time, not authoritative for future dates.
+
+<!--
+  TODO: replace www.sellsmartproperty.co.za above once a real domain is
+  set in terraform/environments/stage0.tfvars (domain_name). See
+  https://llmstxt.org for the format this file follows.
+-->

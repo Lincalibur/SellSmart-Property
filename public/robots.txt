@@ -1,0 +1,7 @@
+# TODO: replace www.sellsmartproperty.co.za below once a real domain is
+# set in terraform/environments/stage0.tfvars (domain_name).
+
+User-agent: *
+Allow: /
+
+Sitemap: https://www.sellsmartproperty.co.za/sitemap.xml
