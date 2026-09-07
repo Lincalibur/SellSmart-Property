@@ -1,4 +1,6 @@
 import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { listingsRouter } from "./routes/listings.js";
 import { enquiriesRouter } from "./routes/enquiries.js";
 import { viewingsRouter } from "./routes/viewings.js";
@@ -17,6 +19,27 @@ export const app = express();
 // (issue #14) records it as part of every audit_log row, so an untrusted
 // proxy setting would make that field meaningless in production.
 app.set("trust proxy", true);
+
+// CSP is left to default-src 'self' via the frontend's own nginx config
+// (frontend/nginx.conf) -- this API only ever returns JSON, never HTML, so
+// the headers that matter here are the ones stopping a JSON response from
+// being sniffed/framed/cached as something else.
+app.use(helmet());
+
+// Applies to every route below, including the DocuSign webhook mounted
+// next -- a generous ceiling (this isn't meant to throttle real traffic,
+// just cap how fast an attacker can hammer unauthenticated endpoints like
+// the OTP builder or the payment/DocuSign webhooks) rather than a
+// per-route budget, since a single shared limiter is enough to blunt
+// brute-force/DoS attempts without needing to tune each route separately.
+app.use(
+  rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
 
 // Mounted before express.json(): DocuSign Connect's webhook needs the raw
 // request body (its HMAC signature is over the exact bytes sent, see
